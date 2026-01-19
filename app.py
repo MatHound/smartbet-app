@@ -5,17 +5,15 @@ import requests
 from scipy.stats import poisson
 
 # Configurazione Pagina
-st.set_page_config(page_title="SmartBet Pro", page_icon="⚽", layout="centered")
+st.set_page_config(page_title="SmartBet Full", page_icon="⚽", layout="centered")
 
-# CSS Custom
+# CSS Custom per Griglie Compatte
 st.markdown("""
 <style>
     .stProgress > div > div > div > div { background-color: #00cc00; }
-    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-    .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; background-color: #f0f2f6; border-radius: 4px; gap: 1px; padding-top: 10px; padding-bottom: 10px; }
-    .stTabs [aria-selected="true"] { background-color: #e6ffe6; border-bottom: 2px solid #00cc00; }
-    div[data-testid="stMetricValue"] { font-size: 1.1rem; }
-    div[data-testid="stMetricLabel"] { font-size: 0.8rem; }
+    div[data-testid="column"] { background-color: #f9f9f9; border-radius: 5px; padding: 10px; border: 1px solid #ddd; }
+    h4 { margin-top: 0px; margin-bottom: 5px; font-size: 1rem; }
+    .stMetric { text-align: center; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -24,7 +22,7 @@ with st.sidebar:
     st.header("⚙️ Setup")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
-    st.success("v25.5 - Etichette Corrette (Gol/Corner/Falli)")
+    st.success("v26.0 - Tutte le linee > 70%")
 
 st.title("⚽ SmartBet AI Dashboard")
 st.caption(f"Bankroll Attuale: €{bankroll_input:.2f}")
@@ -147,7 +145,8 @@ def get_full_stats(home, away, df_teams, df_matches):
         res[name] = (exp_h, exp_a)
     return res
 
-def get_best_prop(home_exp, away_exp, label, bankroll):
+# MODIFICA PRINCIPALE: Restituisce UNA LISTA di opzioni, non solo la migliore
+def get_props_list(home_exp, away_exp, label, bankroll):
     icon_map = {'CORN': '🚩', 'FALLI': '🛑', 'GOL': '⚽'}
     
     if label == 'CORN':
@@ -161,26 +160,31 @@ def get_best_prop(home_exp, away_exp, label, bankroll):
         ranges_tot = [1.5, 2.5, 3.5]
         
     tot_exp = home_exp + away_exp
-    opts = []
+    valid_opts = []
     
     def check(lbl, exp, lines):
         for l in lines:
             p = poisson.sf(int(l), exp)
             if p > 0.70: 
                 q = 1/p if p > 0 else 1.01
-                # FIX ETICHETTA: Aggiungo Icona e Tipo
-                opts.append({'desc':f"{icon_map[label]} {label} {lbl} Ov {l}", 'prob':p, 'q':q})
+                stake = round(bankroll * 0.05, 2)
+                if p > 0.80: stake = round(bankroll * 0.10, 2)
+                
+                # Aggiunge alla lista
+                valid_opts.append({
+                    'type': label,
+                    'desc': f"{lbl} Ov {l}", 
+                    'prob': p, 
+                    'q': q,
+                    'stake': stake
+                })
             
     check("CASA", home_exp, ranges_indiv)
     check("OSP", away_exp, ranges_indiv)
     check("TOT", tot_exp, ranges_tot)
     
-    if not opts: return None
-    best = sorted(opts, key=lambda x: x['q'], reverse=True)[0]
-    stake = round(bankroll * 0.05, 2)
-    if best['prob'] > 0.80: stake = round(bankroll * 0.10, 2)
-    if stake < 0.5: stake = 0.5
-    return {'desc': best['desc'], 'prob': best['prob'], 'q': best['q'], 'stake': stake}
+    # Ordina per Quota Decrescente (Mostra prima le più ricche)
+    return sorted(valid_opts, key=lambda x: x['q'], reverse=True)
 
 # MAIN LOOP
 if start_analisys:
@@ -220,40 +224,45 @@ if start_analisys:
                         
                         _, _, _, lam_h, lam_a = calcola_1x2_lambda(stats['Shots'][0], stats['Shots'][1])
                         
-                        p_corn = get_best_prop(stats['Corn'][0], stats['Corn'][1], 'CORN', bankroll_input)
-                        p_foul = get_best_prop(stats['Fouls'][0], stats['Fouls'][1], 'FALLI', bankroll_input)
-                        p_gol = get_best_prop(lam_h, lam_a, 'GOL', bankroll_input)
+                        # OTTIENI LISTE COMPLETE
+                        list_corn = get_props_list(stats['Corn'][0], stats['Corn'][1], 'CORN', bankroll_input)
+                        list_foul = get_props_list(stats['Fouls'][0], stats['Fouls'][1], 'FALLI', bankroll_input)
+                        list_gol = get_props_list(lam_h, lam_a, 'GOL', bankroll_input)
                         
-                        # Debug Data Completo
                         debug_str = (f"⚽ Gol: {lam_h:.1f} vs {lam_a:.1f} | "
                                      f"🚩 Corn: {stats['Corn'][0]:.1f} vs {stats['Corn'][1]:.1f} | "
                                      f"🛑 Falli: {stats['Fouls'][0]:.1f} vs {stats['Fouls'][1]:.1f}")
                         
-                        match_data = {'match': f"{h_team} vs {a_team}", 'props': [], 'debug': debug_str}
-                        if p_corn: match_data['props'].append(p_corn)
-                        if p_foul: match_data['props'].append(p_foul)
-                        if p_gol: match_data['props'].append(p_gol)
+                        match_data = {
+                            'match': f"{h_team} vs {a_team}", 
+                            'corn_bets': list_corn,
+                            'foul_bets': list_foul,
+                            'gol_bets': list_gol,
+                            'debug': debug_str
+                        }
                         
-                        if match_data['props']:
+                        # Se c'è almeno una bet, aggiungi
+                        if list_corn or list_foul or list_gol:
                             results_by_league[name].append(match_data)
-                            for p in match_data['props']:
-                                p['match'] = match_data['match']
-                                all_bets.append(p)
+                            all_bets.extend(list_corn + list_foul + list_gol)
                                 
             step += 1
             progress.progress(step / len(LEGHE))
             
         status.empty()
         
+        # TOP 3 BEST VALUE (Singole Migliori)
         if all_bets:
-            st.markdown("### 🔥 Top 3 Migliori Giocate")
+            st.markdown("### 🔥 Top 3 Value Picks (Assolute)")
+            # Ordina per Quota (più alte) tra quelle sicure
             top_bets = sorted(all_bets, key=lambda x: x['prob'], reverse=True)[:3]
             cols = st.columns(3)
             for i, bet in enumerate(top_bets):
+                icon = '🚩' if bet['type']=='CORN' else '🛑' if bet['type']=='FALLI' else '⚽'
                 with cols[i]:
-                    st.info(f"**{bet['match']}**\n\n{bet['desc']}")
-                    st.metric("Quota Reale", f"{bet['q']:.2f}", f"Prob: {bet['prob']*100:.0f}%")
-                    st.write(f"💶 **Punta:** €{bet['stake']:.2f}")
+                    st.info(f"**{icon} {bet['desc']}**")
+                    st.metric("Quota", f"{bet['q']:.2f}", f"{bet['prob']*100:.0f}%")
+                    st.write(f"💶 €{bet['stake']}")
         
         st.divider()
         tabs = st.tabs(list(LEGHE.values()))
@@ -267,14 +276,39 @@ if start_analisys:
                     for m in matches:
                         with st.container(border=True):
                             st.subheader(m['match'])
-                            # Mostra tutti i dati tecnici per controllo
                             st.caption(f"📊 {m['debug']}")
                             
-                            p_cols = st.columns(len(m['props'])) if m['props'] else [st.container()]
-                            for idx, p in enumerate(m['props']):
-                                with p_cols[idx]:
-                                    st.markdown(f"**{p['desc']}**")
-                                    st.progress(p['prob'], text=f"Confidenza: {p['prob']*100:.0f}%")
-                                    c1, c2 = st.columns(2)
-                                    c1.metric("Quota", f"{p['q']:.2f}")
-                                    c2.metric("Stake", f"€{p['stake']}")
+                            # SEZIONE CORNER
+                            if m['corn_bets']:
+                                st.markdown("#### 🚩 Corner")
+                                c_cols = st.columns(len(m['corn_bets']) if len(m['corn_bets']) < 4 else 3)
+                                for idx, p in enumerate(m['corn_bets']):
+                                    col_idx = idx % 3
+                                    with c_cols[col_idx]:
+                                        st.write(f"**{p['desc']}**")
+                                        st.progress(p['prob'])
+                                        st.caption(f"Q: **{p['q']:.2f}** | Prob: {p['prob']*100:.0f}%")
+                            
+                            # SEZIONE FALLI
+                            if m['foul_bets']:
+                                st.divider()
+                                st.markdown("#### 🛑 Falli")
+                                f_cols = st.columns(len(m['foul_bets']) if len(m['foul_bets']) < 4 else 3)
+                                for idx, p in enumerate(m['foul_bets']):
+                                    col_idx = idx % 3
+                                    with f_cols[col_idx]:
+                                        st.write(f"**{p['desc']}**")
+                                        st.progress(p['prob'])
+                                        st.caption(f"Q: **{p['q']:.2f}** | Prob: {p['prob']*100:.0f}%")
+
+                            # SEZIONE GOL
+                            if m['gol_bets']:
+                                st.divider()
+                                st.markdown("#### ⚽ Gol")
+                                g_cols = st.columns(len(m['gol_bets']) if len(m['gol_bets']) < 4 else 3)
+                                for idx, p in enumerate(m['gol_bets']):
+                                    col_idx = idx % 3
+                                    with g_cols[col_idx]:
+                                        st.write(f"**{p['desc']}**")
+                                        st.progress(p['prob'])
+                                        st.caption(f"Q: **{p['q']:.2f}** | Prob: {p['prob']*100:.0f}%")
