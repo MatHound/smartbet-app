@@ -25,7 +25,7 @@ with st.sidebar:
     st.header("⚙️ Setup")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
-    st.info("💡 Logica ripristinata: Priorità alla Quota Alta se Prob > 70%.")
+    st.info("v25.2 - Fixed NameError & Logic")
 
 st.title("⚽ SmartBet AI Dashboard")
 st.caption(f"Bankroll Attuale: €{bankroll_input:.2f}")
@@ -88,7 +88,7 @@ TEAM_MAPPING = {
 }
 
 # ==============================================================================
-# LOGICA (Backend) - Identica allo Script Python Originale
+# LOGICA (Backend)
 # ==============================================================================
 @st.cache_data(ttl=3600)
 def scarica_dati(codice_lega):
@@ -109,7 +109,6 @@ def scarica_dati(codice_lega):
         avg_conc = df_temp['Conceded'].mean()
         def get_diff(opp): return avg_conc / defense.get(opp, avg_conc) if defense.get(opp, avg_conc) > 0 else 1.0
 
-        # Stats Prep
         cols_h = {'HST':'ShotsFor','AST':'ShotsAg','HC':'CornFor','AC':'CornAg','HF':'FoulsFor','AF':'FoulsAg','HY':'CardsFor','AY':'CardsAg'}
         home = df[['Date','HomeTeam', 'AwayTeam'] + list(cols_h.keys())].rename(columns={'HomeTeam':'Team', 'AwayTeam':'Opponent', **cols_h}); home['IsHome'] = 1
         cols_a = {'AST':'ShotsFor','HST':'ShotsAg','AC':'CornFor','HC':'CornAg','AF':'FoulsFor','HF':'FoulsAg','AY':'CardsFor','HY':'CardsAg'}
@@ -129,7 +128,20 @@ def get_live_matches(api_key, sport_key):
     try: return requests.get(url).json()
     except: return []
 
-# Questa funzione replica ESATTAMENTE la logica "get_expected_stats" del vecchio script
+# --- LA FUNZIONE MANCANTE REINTRODOTTA ---
+def calcola_1x2_lambda(exp_shots_h, exp_shots_a):
+    lam_h, lam_a = exp_shots_h * 0.30, exp_shots_a * 0.30
+    mat = np.zeros((6,6))
+    for i in range(6):
+        for j in range(6):
+            mat[i,j] = poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
+    # Fattore campo e pareggi (Logic Version 24.0)
+    if lam_h < 1.3 and lam_a < 1.3: mat[0,0]*=1.15; mat[1,1]*=1.08 
+    p1 = np.sum(np.tril(mat,-1))
+    pX = np.trace(mat)
+    p2 = np.sum(np.triu(mat,1))
+    return (1/p1 if p1>0 else 99), (1/pX if pX>0 else 99), (1/p2 if p2>0 else 99), lam_h, lam_a
+
 def get_full_stats(home, away, df_teams, df_matches):
     try:
         s_h = df_teams[df_teams['Team'] == home].iloc[-1]
@@ -137,28 +149,22 @@ def get_full_stats(home, away, df_teams, df_matches):
     except: return None
 
     res = {}
-    # (Nome, HomeCol, AwayCol)
     config = [('Shots','HST','AST'), ('Corn','HC','AC'), ('Fouls','HF','AF'), ('Cards','HY','AY')]
     
     for name, ch, ca in config:
-        avg_L_h = df_matches[ch].mean() # Media Lega Casa
-        avg_L_a = df_matches[ca].mean() # Media Lega Ospite
+        avg_L_h = df_matches[ch].mean()
+        avg_L_a = df_matches[ca].mean()
         
-        # Attacco Casa * Difesa Ospite * Media Lega
-        att_h = s_h[f'W_{name}For'] / avg_L_h
-        def_a = s_a[f'W_{name}Ag'] / avg_L_h
+        att_h = s_h[f'W_{name}For'] / avg_L_h; def_a = s_a[f'W_{name}Ag'] / avg_L_h
         exp_h = att_h * def_a * avg_L_h
         
-        # Attacco Ospite * Difesa Casa * Media Lega
-        att_a = s_a[f'W_{name}For'] / avg_L_a
-        def_h = s_h[f'W_{name}Ag'] / avg_L_a
+        att_a = s_a[f'W_{name}For'] / avg_L_a; def_h = s_h[f'W_{name}Ag'] / avg_L_a
         exp_a = att_a * def_h * avg_L_a
         
         res[name] = (exp_h, exp_a)
     return res
 
 def get_best_prop(home_exp, away_exp, label, bankroll):
-    # Ranges identici allo script originale
     if label == 'CORN':
         ranges_indiv = [2.5, 3.5, 4.5, 5.5, 6.5, 7.5]
         ranges_tot = [7.5, 8.5, 9.5, 10.5, 11.5, 12.5]
@@ -176,7 +182,7 @@ def get_best_prop(home_exp, away_exp, label, bankroll):
     def check(lbl, exp, lines):
         for l in lines:
             p = poisson.sf(int(l), exp)
-            if p > 0.70: # Filtro Sicurezza
+            if p > 0.70: 
                 q = 1/p if p > 0 else 1.01
                 opts.append({'desc':f"{lbl} Ov {l}", 'prob':p, 'q':q})
             
@@ -186,12 +192,13 @@ def get_best_prop(home_exp, away_exp, label, bankroll):
     
     if not opts: return None
     
-    # FIX IMPORTANTE: Ordina per QUOTA (Value), non per Probabilità (Safety)
-    # reverse=True mette in cima la quota più alta
+    # SORTING: Priorità QUOTA (Value), purché prob > 70%
     best = sorted(opts, key=lambda x: x['q'], reverse=True)[0]
     
     stake = round(bankroll * 0.05, 2)
     if best['prob'] > 0.80: stake = round(bankroll * 0.10, 2)
+    if stake < 0.5: stake = 0.5
+    
     return {'desc': best['desc'], 'prob': best['prob'], 'q': best['q'], 'stake': stake}
 
 # ==============================================================================
@@ -220,7 +227,6 @@ if start_analisys:
                         h, a = m['home_team'], m['away_team']
                         h_team = TEAM_MAPPING.get(h, h); a_team = TEAM_MAPPING.get(a, a)
                         
-                        # Get Odds Bookmaker
                         q_book = 0
                         for b in m['bookmakers']:
                             for mk in b['markets']:
@@ -230,22 +236,17 @@ if start_analisys:
                             if q_book > 0: break
                         if q_book == 0: continue
                         
-                        # Get Stats Reali (Logic Python Script)
                         stats = get_full_stats(h_team, a_team, df_teams, df_matches)
                         if not stats: continue
                         
-                        # Calcoli Props
-                        # stats['Corn'][0] è exp_home, stats['Corn'][1] è exp_away
+                        # 1X2 Check (chiamo la funzione reintrodotta)
+                        q1_m, qX_m, q2_m, lam_h, lam_a = calcola_1x2_lambda(stats['Shots'][0], stats['Shots'][1])
+                        
                         p_corn = get_best_prop(stats['Corn'][0], stats['Corn'][1], 'CORN', bankroll_input)
                         p_foul = get_best_prop(stats['Fouls'][0], stats['Fouls'][1], 'FALLI', bankroll_input)
-                        
-                        # Calcoli Gol (derivato dai tiri)
-                        lam_h, lam_a = calcola_1x2_lambda(stats['Shots'][0], stats['Shots'][1])
                         p_gol = get_best_prop(lam_h, lam_a, 'GOL', bankroll_input)
                         
-                        # Build Match Card
                         match_data = {'match': f"{h_team} vs {a_team}", 'props': []}
-                        
                         if p_corn: match_data['props'].append(p_corn)
                         if p_foul: match_data['props'].append(p_foul)
                         if p_gol: match_data['props'].append(p_gol)
@@ -262,8 +263,6 @@ if start_analisys:
         status.empty()
         
         # --- VISUALIZZAZIONE ---
-        
-        # TOP 3 VALUE BETS (Per Probabilità, le più sicure)
         if all_bets:
             st.markdown("### 🔥 Top 3 Migliori Giocate")
             # Qui ordino per Probabilità per darti le "Sicurissime" nella dashboard in alto
@@ -293,7 +292,6 @@ if start_analisys:
                             for idx, p in enumerate(m['props']):
                                 with p_cols[idx]:
                                     st.markdown(f"**{p['desc']}**")
-                                    # Colore barra in base a confidenza
                                     conf_color = "#00cc00" if p['prob'] > 0.8 else "#ffcc00"
                                     st.progress(p['prob'], text=f"Confidenza: {p['prob']*100:.0f}%")
                                     c1, c2 = st.columns(2)
