@@ -5,7 +5,7 @@ import requests
 from scipy.stats import poisson
 
 # Configurazione Pagina
-st.set_page_config(page_title="SmartBet Final", page_icon="⚽", layout="centered")
+st.set_page_config(page_title="SmartBet Strict", page_icon="⚽", layout="centered")
 
 # CSS Custom
 st.markdown("""
@@ -13,7 +13,9 @@ st.markdown("""
     div[data-testid="column"] { background-color: #f9f9f9; border-radius: 5px; padding: 10px; border: 1px solid #ddd; }
     h4 { margin-top: 0px; margin-bottom: 5px; font-size: 1rem; }
     .stMetric { text-align: center; }
-    .value-box { background-color: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 5px; text-align: center; color: #155724; font-weight: bold; }
+    /* Value Box Verde Scuro/Forte per ROI > 15% */
+    .value-box { background-color: #d4edda; border: 2px solid #28a745; padding: 10px; border-radius: 5px; text-align: center; color: #155724; font-weight: bold; }
+    /* Neutral Box per ROI basso o negativo */
     .neutral-box { background-color: #f8f9fa; border: 1px solid #ddd; padding: 10px; border-radius: 5px; text-align: center; color: #666; }
     .small-text { font-size: 0.85em; color: #555; }
     .prob-text { font-size: 0.8em; font-weight: bold; color: #333; margin-top: 2px; }
@@ -25,8 +27,8 @@ with st.sidebar:
     st.header("⚙️ Setup")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
-    min_quota_filter = st.slider("Filtro Quota Minima", 1.10, 1.50, 1.25, step=0.05)
-    st.info(f"v30.1 - Top 3 con Nomi Match")
+    min_quota_filter = st.slider("Filtro Quota Minima (Props)", 1.10, 1.50, 1.25, step=0.05)
+    st.info(f"v31.0 - 1X2 Verde solo se Q<5 e ROI>15%")
 
 st.title("⚽ SmartBet AI Dashboard")
 st.caption(f"Bankroll Attuale: €{bankroll_input:.2f}")
@@ -185,7 +187,7 @@ def get_props_list(home_exp, away_exp, label, bankroll, min_quota):
             p = poisson.sf(int(l), exp)
             if p > 0.70: 
                 q = 1/p if p > 0 else 1.01
-                if q < min_quota: continue # FILTRO ANTI SPAZZATURA
+                if q < min_quota: continue
                 stake = round(bankroll * 0.05, 2)
                 if p > 0.80: stake = round(bankroll * 0.10, 2)
                 valid_opts.append({'type': label, 'desc': f"{lbl} Ov {l}", 'prob': p, 'q': q, 'stake': stake})
@@ -194,7 +196,7 @@ def get_props_list(home_exp, away_exp, label, bankroll, min_quota):
     check("OSP", away_exp, ranges_indiv)
     check("TOT", tot_exp, ranges_tot)
     
-    return sorted(valid_opts, key=lambda x: x['q'], reverse=True)[:2] # Top 2 per categoria
+    return sorted(valid_opts, key=lambda x: x['q'], reverse=True)[:2]
 
 def custom_progress(prob):
     pct = int(prob * 100)
@@ -262,7 +264,6 @@ if start_analisys:
                         list_shots = get_props_list(stats['Shots'][0], stats['Shots'][1], 'SHOTS', bankroll_input, min_q)
                         list_cards = get_props_list(stats['Cards'][0], stats['Cards'][1], 'CARDS', bankroll_input, min_q)
                         
-                        # --- FIX: AGGIUNGO NOME MATCH ALLE BET ---
                         match_name = f"{h_team} vs {a_team}"
                         all_lists = [list_corn, list_foul, list_gol, list_shots, list_cards]
                         for l in all_lists:
@@ -304,7 +305,7 @@ if start_analisys:
                 elif bet['type'] == 'CARDS': icon = '🟨'
                 
                 with cols[i]:
-                    st.info(f"{bet['match']}\n\n**{icon} {bet['desc']}**") # Nome Match qui!
+                    st.info(f"{bet['match']}\n\n**{icon} {bet['desc']}**")
                     st.metric("Quota", f"{bet['q']:.2f}", f"{bet['prob']*100:.0f}%")
                     st.write(f"💶 €{bet['stake']}")
         
@@ -321,18 +322,21 @@ if start_analisys:
                         with st.container(border=True):
                             st.subheader(m['match'])
                             
-                            # 1X2
+                            # 1X2 - LOGICA VERDE RISTRETTA
                             st.markdown("##### ⚖️ Esito Finale")
                             c1, c2, c3 = st.columns(3)
+                            
                             def show_box(col, label, data):
-                                style = "value-box" if data['roi'] > 0.05 else "neutral-box"
-                                val_txt = f"+{data['roi']*100:.0f}%" if data['roi'] > 0.05 else "-"
+                                # CONDIZIONE: Verde solo se Q <= 5.0 e ROI >= 15%
+                                is_green = (data['q'] <= 5.0 and data['roi'] >= 0.15)
+                                style = "value-box" if is_green else "neutral-box"
+                                val_txt = f"+{data['roi']*100:.0f}%" if data['roi'] > 0 else "-"
                                 col.markdown(f"<div class='{style}'>{label}<br>{data['q']:.2f}<br><small>{val_txt}</small></div>", unsafe_allow_html=True)
+                                
                             show_box(c1, "1", m['1x2']['1']); show_box(c2, "X", m['1x2']['X']); show_box(c3, "2", m['1x2']['2'])
                             
                             st.divider()
                             
-                            # H2H
                             with st.expander("⚔️ Testa a Testa (Stats)"):
                                 h2h_cols = st.columns(4)
                                 for idx, h in enumerate(m['h2h']):
@@ -340,7 +344,6 @@ if start_analisys:
                                         st.markdown(f"**{h['metric']}**")
                                         st.write(f"{h['fav']} {h['prob']*100:.0f}%")
 
-                            # --- PROPS SECTION ---
                             def show_props(title, bets, exp):
                                 if bets:
                                     st.markdown(f"#### {title} <span class='small-text'>(Att: {exp[0]:.1f} vs {exp[1]:.1f})</span>", unsafe_allow_html=True)
