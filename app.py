@@ -4,10 +4,10 @@ import numpy as np
 import requests
 from scipy.stats import poisson
 
-# Configurazione Pagina Mobile-First
-st.set_page_config(page_title="SmartBet Pro", page_icon="⚽", layout="centered")
+# Configurazione Pagina
+st.set_page_config(page_title="SmartBet v25.4", page_icon="⚽", layout="centered")
 
-# CSS Custom
+# CSS UI
 st.markdown("""
 <style>
     .stProgress > div > div > div > div { background-color: #00cc00; }
@@ -18,21 +18,20 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==============================================================================
 # SIDEBAR
-# ==============================================================================
 with st.sidebar:
     st.header("⚙️ Setup")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
-    st.success("v25.3 - Bugfix Calcoli Gol")
+    st.success("Versione: v25.4 (Clean)")
 
-st.title("⚽ SmartBet AI Dashboard")
+# TITOLO CON VERSIONE VISIBILE
+st.title("⚽ SmartBet AI (v25.4)")
 st.caption(f"Bankroll Attuale: €{bankroll_input:.2f}")
 
 start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
 
-# DATI COSTANTI
+# COSTANTI
 STAGIONE = "2526"
 REGION = 'eu'
 MARKET = 'h2h'
@@ -87,9 +86,6 @@ TEAM_MAPPING = {
     'Auxerre': 'Auxerre', 'Angers SCO': 'Angers'
 }
 
-# ==============================================================================
-# LOGICA (Backend)
-# ==============================================================================
 @st.cache_data(ttl=3600)
 def scarica_dati(codice_lega):
     url = f"https://www.football-data.co.uk/mmz4281/{STAGIONE}/{codice_lega}.csv"
@@ -127,10 +123,10 @@ def get_live_matches(api_key, sport_key):
     try: return requests.get(url).json()
     except: return []
 
-# FUNZIONE 1X2 E CALCOLO LAMBDA
 def calcola_1x2_lambda(exp_shots_h, exp_shots_a):
-    # Calcolo Gol Attesi dai tiri
-    lam_h, lam_a = exp_shots_h * 0.30, exp_shots_a * 0.30
+    # Calcolo LAMBDA (Gol Attesi)
+    lam_h = exp_shots_h * 0.30
+    lam_a = exp_shots_a * 0.30
     
     # Matrice Poisson
     mat = np.zeros((6,6))
@@ -144,7 +140,12 @@ def calcola_1x2_lambda(exp_shots_h, exp_shots_a):
     pX = np.trace(mat)
     p2 = np.sum(np.triu(mat,1))
     
-    # Restituisce (Quota1, QuotaX, Quota2, AttesiCasa, AttesiOspite)
+    # IMPORTANTISSIMO: Restituisce 5 valori
+    # 1: Quota Casa
+    # 2: Quota X
+    # 3: Quota Ospite
+    # 4: Gol Attesi Casa (lam_h)
+    # 5: Gol Attesi Ospite (lam_a)
     return (1/p1 if p1>0 else 99), (1/pX if pX>0 else 99), (1/p2 if p2>0 else 99), lam_h, lam_a
 
 def get_full_stats(home, away, df_teams, df_matches):
@@ -181,7 +182,6 @@ def get_best_prop(home_exp, away_exp, label, bankroll):
         ranges_tot = [1.5, 2.5, 3.5]
         
     tot_exp = home_exp + away_exp
-    
     opts = []
     
     def check(lbl, exp, lines):
@@ -197,7 +197,7 @@ def get_best_prop(home_exp, away_exp, label, bankroll):
     
     if not opts: return None
     
-    # SORTING: Priorità QUOTA (Value), purché prob > 70%
+    # VALUE SORTING (Quota più alta tra le prob > 70%)
     best = sorted(opts, key=lambda x: x['q'], reverse=True)[0]
     
     stake = round(bankroll * 0.05, 2)
@@ -206,9 +206,7 @@ def get_best_prop(home_exp, away_exp, label, bankroll):
     
     return {'desc': best['desc'], 'prob': best['prob'], 'q': best['q'], 'stake': stake}
 
-# ==============================================================================
-# MAIN APP LOOP
-# ==============================================================================
+# MAIN LOOP
 if start_analisys:
     if not api_key_input:
         st.error("Inserisci l'API Key nel menu laterale!")
@@ -244,15 +242,19 @@ if start_analisys:
                         stats = get_full_stats(h_team, a_team, df_teams, df_matches)
                         if not stats: continue
                         
-                        # --- FIX BUG: UNPACKING CORRETTO DEI 5 VALORI ---
-                        # Ignoriamo le prime 3 variabili (quote) e prendiamo solo lambda
+                        # --- FIX CRITICO: UNPACKING 5 VALORI ---
                         _, _, _, lam_h, lam_a = calcola_1x2_lambda(stats['Shots'][0], stats['Shots'][1])
                         
                         p_corn = get_best_prop(stats['Corn'][0], stats['Corn'][1], 'CORN', bankroll_input)
                         p_foul = get_best_prop(stats['Fouls'][0], stats['Fouls'][1], 'FALLI', bankroll_input)
                         p_gol = get_best_prop(lam_h, lam_a, 'GOL', bankroll_input)
                         
-                        match_data = {'match': f"{h_team} vs {a_team}", 'props': []}
+                        match_data = {
+                            'match': f"{h_team} vs {a_team}", 
+                            'props': [],
+                            # DEBUG DATA (Per verificare i numeri)
+                            'debug_gol': f"Exp Gol: {lam_h:.2f} vs {lam_a:.2f}"
+                        }
                         if p_corn: match_data['props'].append(p_corn)
                         if p_foul: match_data['props'].append(p_foul)
                         if p_gol: match_data['props'].append(p_gol)
@@ -268,10 +270,8 @@ if start_analisys:
             
         status.empty()
         
-        # --- VISUALIZZAZIONE ---
         if all_bets:
             st.markdown("### 🔥 Top 3 Migliori Giocate")
-            # TOP 3 Ordinate per Probabilità (Sicurezza)
             top_bets = sorted(all_bets, key=lambda x: x['prob'], reverse=True)[:3]
             cols = st.columns(3)
             for i, bet in enumerate(top_bets):
@@ -281,7 +281,6 @@ if start_analisys:
                     st.write(f"💶 **Punta:** €{bet['stake']:.2f}")
         
         st.divider()
-        
         tabs = st.tabs(list(LEGHE.values()))
         
         for i, (code, name) in enumerate(LEGHE.items()):
@@ -293,8 +292,10 @@ if start_analisys:
                     for m in matches:
                         with st.container(border=True):
                             st.subheader(m['match'])
-                            p_cols = st.columns(len(m['props'])) if m['props'] else [st.container()]
+                            # Visualizza i Gol Attesi per Debug
+                            st.caption(f"📊 Dati Tecnici: {m['debug_gol']}") 
                             
+                            p_cols = st.columns(len(m['props'])) if m['props'] else [st.container()]
                             for idx, p in enumerate(m['props']):
                                 with p_cols[idx]:
                                     st.markdown(f"**{p['desc']}**")
