@@ -5,17 +5,17 @@ import requests
 from scipy.stats import poisson
 
 # Configurazione Pagina
-st.set_page_config(page_title="SmartBet Suite", page_icon="⚽", layout="centered")
+st.set_page_config(page_title="SmartBet Elite", page_icon="⚽", layout="centered")
 
 # CSS Custom
 st.markdown("""
 <style>
-    .stProgress > div > div > div > div { background-color: #00cc00; }
     div[data-testid="column"] { background-color: #f9f9f9; border-radius: 5px; padding: 10px; border: 1px solid #ddd; }
     h4 { margin-top: 0px; margin-bottom: 5px; font-size: 1rem; }
     .stMetric { text-align: center; }
     .value-box { background-color: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 5px; text-align: center; color: #155724; font-weight: bold; }
     .neutral-box { background-color: #f8f9fa; border: 1px solid #ddd; padding: 10px; border-radius: 5px; text-align: center; color: #666; }
+    .small-text { font-size: 0.85em; color: #555; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -24,7 +24,7 @@ with st.sidebar:
     st.header("⚙️ Setup")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
-    st.success("v27.0 - 1X2 & H2H Reintrodotte")
+    st.info("v28.0 - Attesi Visibili & Colori Custom")
 
 st.title("⚽ SmartBet AI Dashboard")
 st.caption(f"Bankroll Attuale: €{bankroll_input:.2f}")
@@ -133,15 +133,12 @@ def calcola_1x2_lambda(exp_shots_h, exp_shots_a):
     p1 = np.sum(np.tril(mat,-1)); pX = np.trace(mat); p2 = np.sum(np.triu(mat,1))
     return (1/p1 if p1>0 else 99), (1/pX if pX>0 else 99), (1/p2 if p2>0 else 99), lam_h, lam_a
 
-# Funzione H2H (Chi è favorito nelle stats?)
 def calcola_h2h_favorito(val_h, val_a):
-    # Prob che H > A
     r = np.arange(40)
     pmf_h = poisson.pmf(r, val_h); pmf_a = poisson.pmf(r, val_a)
     joint = np.outer(pmf_h, pmf_a)
-    p_h = np.sum(np.tril(joint, -1)) # H wins
-    p_a = np.sum(np.triu(joint, 1))  # A wins
-    
+    p_h = np.sum(np.tril(joint, -1))
+    p_a = np.sum(np.triu(joint, 1))
     if p_h > p_a: return "CASA", p_h
     else: return "OSP", p_a
 
@@ -184,6 +181,20 @@ def get_props_list(home_exp, away_exp, label, bankroll):
     check("CASA", home_exp, ranges_indiv); check("OSP", away_exp, ranges_indiv); check("TOT", tot_exp, ranges_tot)
     return sorted(valid_opts, key=lambda x: x['q'], reverse=True)
 
+# Helper per la barra colorata personalizzata
+def custom_progress(prob):
+    pct = int(prob * 100)
+    # COLOR LOGIC RICHIESTA
+    if pct >= 90: color = "#006400" # Verde Scuro
+    elif pct >= 80: color = "#00cc00" # Verde 
+    else: color = "#85e085" # Verde Chiaro (70-79)
+    
+    return f"""
+    <div style="width:100%; background-color: #e0e0e0; border-radius: 5px; height: 8px; margin-top:5px; margin-bottom:5px;">
+        <div style="width:{pct}%; background-color: {color}; height: 8px; border-radius: 5px;"></div>
+    </div>
+    """
+
 # MAIN LOOP
 if start_analisys:
     if not api_key_input:
@@ -208,7 +219,6 @@ if start_analisys:
                         h, a = m['home_team'], m['away_team']
                         h_team = TEAM_MAPPING.get(h, h); a_team = TEAM_MAPPING.get(a, a)
                         
-                        # Bookie 1X2 Odds
                         q1_b, qX_b, q2_b = 0,0,0
                         for b in m['bookmakers']:
                             for mk in b['markets']:
@@ -222,13 +232,9 @@ if start_analisys:
                         stats = get_full_stats(h_team, a_team, df_teams, df_matches)
                         if not stats: continue
                         
-                        # 1X2 Analysis
                         q1_m, qX_m, q2_m, lam_h, lam_a = calcola_1x2_lambda(stats['Shots'][0], stats['Shots'][1])
-                        roi_1 = ((1/q1_m)*q1_b)-1
-                        roi_X = ((1/qX_m)*qX_b)-1
-                        roi_2 = ((1/q2_m)*q2_b)-1
+                        roi_1 = ((1/q1_m)*q1_b)-1; roi_X = ((1/qX_m)*qX_b)-1; roi_2 = ((1/q2_m)*q2_b)-1
                         
-                        # H2H Analysis
                         h2h_data = []
                         metrics_cfg = [("Tiri", 'Shots'), ("Corner", 'Corn'), ("Falli", 'Fouls'), ("Cards", 'Cards')]
                         for label, key in metrics_cfg:
@@ -236,22 +242,20 @@ if start_analisys:
                             fav_team = "🏠" if fav == "CASA" else "✈️"
                             h2h_data.append({'metric': label, 'fav': fav_team, 'prob': prob})
                         
-                        # Props Analysis
                         list_corn = get_props_list(stats['Corn'][0], stats['Corn'][1], 'CORN', bankroll_input)
                         list_foul = get_props_list(stats['Fouls'][0], stats['Fouls'][1], 'FALLI', bankroll_input)
                         list_gol = get_props_list(lam_h, lam_a, 'GOL', bankroll_input)
                         
-                        # Aggregazione Dati
                         match_data = {
                             'match': f"{h_team} vs {a_team}",
                             '1x2': {'1': {'q': q1_b, 'roi': roi_1}, 'X': {'q': qX_b, 'roi': roi_X}, '2': {'q': q2_b, 'roi': roi_2}},
                             'h2h': h2h_data,
-                            'corn_bets': list_corn,
-                            'foul_bets': list_foul,
-                            'gol_bets': list_gol
+                            'exp_corn': (stats['Corn'][0], stats['Corn'][1]),
+                            'exp_foul': (stats['Fouls'][0], stats['Fouls'][1]),
+                            'exp_gol': (lam_h, lam_a),
+                            'corn_bets': list_corn, 'foul_bets': list_foul, 'gol_bets': list_gol
                         }
                         
-                        # Filtro visualizzazione: Mostriamo se c'è Value 1X2 OPPURE Props
                         has_val_1x2 = max(roi_1, roi_X, roi_2) > 0.05
                         if has_val_1x2 or list_corn or list_foul or list_gol:
                             results_by_league[name].append(match_data)
@@ -262,7 +266,7 @@ if start_analisys:
             
         status.empty()
         
-        # TOP BETS SECTION
+        # TOP BETS
         if all_bets:
             st.markdown("### 🔥 Top 3 Value Picks (Props)")
             top_bets = sorted(all_bets, key=lambda x: x['prob'], reverse=True)[:3]
@@ -287,53 +291,46 @@ if start_analisys:
                         with st.container(border=True):
                             st.subheader(m['match'])
                             
-                            # --- SEZIONE 1X2 ---
-                            st.markdown("##### ⚖️ Esito Finale (1X2)")
+                            # 1X2
+                            st.markdown("##### ⚖️ Esito Finale")
                             c1, c2, c3 = st.columns(3)
-                            
                             def show_box(col, label, data):
                                 style = "value-box" if data['roi'] > 0.05 else "neutral-box"
-                                val_txt = f"Valore: +{data['roi']*100:.0f}%" if data['roi'] > 0.05 else "No Val"
-                                col.markdown(f"""<div class='{style}'>
-                                    {label}<br><span style='font-size:1.2em'>{data['q']:.2f}</span><br>
-                                    <span style='font-size:0.8em'>{val_txt}</span>
-                                </div>""", unsafe_allow_html=True)
-                            
-                            show_box(c1, "1", m['1x2']['1'])
-                            show_box(c2, "X", m['1x2']['X'])
-                            show_box(c3, "2", m['1x2']['2'])
+                                val_txt = f"+{data['roi']*100:.0f}%" if data['roi'] > 0.05 else "-"
+                                col.markdown(f"<div class='{style}'>{label}<br>{data['q']:.2f}<br><small>{val_txt}</small></div>", unsafe_allow_html=True)
+                            show_box(c1, "1", m['1x2']['1']); show_box(c2, "X", m['1x2']['X']); show_box(c3, "2", m['1x2']['2'])
                             
                             st.divider()
                             
-                            # --- SEZIONE TESTA A TESTA ---
-                            with st.expander("⚔️ Statistiche Testa a Testa (Chi ne fa di più?)", expanded=False):
+                            # H2H
+                            with st.expander("⚔️ Testa a Testa (Chi vince la statistica?)"):
                                 h2h_cols = st.columns(4)
                                 for idx, h in enumerate(m['h2h']):
                                     with h2h_cols[idx]:
                                         st.markdown(f"**{h['metric']}**")
                                         st.write(f"{h['fav']} {h['prob']*100:.0f}%")
 
-                            # --- SEZIONE PROPS ---
+                            # PROPS CON ATTESI E BARRA COLORATA
                             if m['corn_bets']:
-                                st.markdown("#### 🚩 Corner")
+                                st.markdown(f"#### 🚩 Corner <span class='small-text'>(Attesi: {m['exp_corn'][0]:.1f} vs {m['exp_corn'][1]:.1f})</span>", unsafe_allow_html=True)
                                 c_cols = st.columns(3)
                                 for idx, p in enumerate(m['corn_bets']):
                                     with c_cols[idx % 3]:
                                         st.caption(f"{p['desc']} (@{p['q']:.2f})")
-                                        st.progress(p['prob'])
+                                        st.markdown(custom_progress(p['prob']), unsafe_allow_html=True)
                             
                             if m['foul_bets']:
-                                st.markdown("#### 🛑 Falli")
+                                st.markdown(f"#### 🛑 Falli <span class='small-text'>(Attesi: {m['exp_foul'][0]:.1f} vs {m['exp_foul'][1]:.1f})</span>", unsafe_allow_html=True)
                                 f_cols = st.columns(3)
                                 for idx, p in enumerate(m['foul_bets']):
                                     with f_cols[idx % 3]:
                                         st.caption(f"{p['desc']} (@{p['q']:.2f})")
-                                        st.progress(p['prob'])
+                                        st.markdown(custom_progress(p['prob']), unsafe_allow_html=True)
                                         
                             if m['gol_bets']:
-                                st.markdown("#### ⚽ Gol")
+                                st.markdown(f"#### ⚽ Gol <span class='small-text'>(Attesi: {m['exp_gol'][0]:.1f} vs {m['exp_gol'][1]:.1f})</span>", unsafe_allow_html=True)
                                 g_cols = st.columns(3)
                                 for idx, p in enumerate(m['gol_bets']):
                                     with g_cols[idx % 3]:
                                         st.caption(f"{p['desc']} (@{p['q']:.2f})")
-                                        st.progress(p['prob'])
+                                        st.markdown(custom_progress(p['prob']), unsafe_allow_html=True)
