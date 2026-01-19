@@ -7,7 +7,7 @@ from scipy.stats import poisson
 # Configurazione Pagina Mobile-First
 st.set_page_config(page_title="SmartBet Pro", page_icon="⚽", layout="centered")
 
-# CSS Custom per UI Mobile
+# CSS Custom
 st.markdown("""
 <style>
     .stProgress > div > div > div > div { background-color: #00cc00; }
@@ -19,13 +19,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# SIDEBAR & INPUT
+# SIDEBAR
 # ==============================================================================
 with st.sidebar:
     st.header("⚙️ Setup")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
-    st.info("v25.2 - Fixed NameError & Logic")
+    st.success("v25.3 - Bugfix Calcoli Gol")
 
 st.title("⚽ SmartBet AI Dashboard")
 st.caption(f"Bankroll Attuale: €{bankroll_input:.2f}")
@@ -99,7 +99,6 @@ def scarica_dati(codice_lega):
         df = df.sort_values('Date')
         df['HomeTeam'] = df['HomeTeam'].str.strip(); df['AwayTeam'] = df['AwayTeam'].str.strip()
         
-        # Difficulty Logic
         df_temp = pd.concat([
             df[['Date','HomeTeam','AST']].rename(columns={'HomeTeam':'Team','AST':'Conceded'}),
             df[['Date','AwayTeam','HST']].rename(columns={'AwayTeam':'Team','HST':'Conceded'})
@@ -128,18 +127,24 @@ def get_live_matches(api_key, sport_key):
     try: return requests.get(url).json()
     except: return []
 
-# --- LA FUNZIONE MANCANTE REINTRODOTTA ---
+# FUNZIONE 1X2 E CALCOLO LAMBDA
 def calcola_1x2_lambda(exp_shots_h, exp_shots_a):
+    # Calcolo Gol Attesi dai tiri
     lam_h, lam_a = exp_shots_h * 0.30, exp_shots_a * 0.30
+    
+    # Matrice Poisson
     mat = np.zeros((6,6))
     for i in range(6):
         for j in range(6):
             mat[i,j] = poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
-    # Fattore campo e pareggi (Logic Version 24.0)
+            
     if lam_h < 1.3 and lam_a < 1.3: mat[0,0]*=1.15; mat[1,1]*=1.08 
+    
     p1 = np.sum(np.tril(mat,-1))
     pX = np.trace(mat)
     p2 = np.sum(np.triu(mat,1))
+    
+    # Restituisce (Quota1, QuotaX, Quota2, AttesiCasa, AttesiOspite)
     return (1/p1 if p1>0 else 99), (1/pX if pX>0 else 99), (1/p2 if p2>0 else 99), lam_h, lam_a
 
 def get_full_stats(home, away, df_teams, df_matches):
@@ -239,8 +244,9 @@ if start_analisys:
                         stats = get_full_stats(h_team, a_team, df_teams, df_matches)
                         if not stats: continue
                         
-                        # 1X2 Check (chiamo la funzione reintrodotta)
-                        q1_m, qX_m, q2_m, lam_h, lam_a = calcola_1x2_lambda(stats['Shots'][0], stats['Shots'][1])
+                        # --- FIX BUG: UNPACKING CORRETTO DEI 5 VALORI ---
+                        # Ignoriamo le prime 3 variabili (quote) e prendiamo solo lambda
+                        _, _, _, lam_h, lam_a = calcola_1x2_lambda(stats['Shots'][0], stats['Shots'][1])
                         
                         p_corn = get_best_prop(stats['Corn'][0], stats['Corn'][1], 'CORN', bankroll_input)
                         p_foul = get_best_prop(stats['Fouls'][0], stats['Fouls'][1], 'FALLI', bankroll_input)
@@ -265,7 +271,7 @@ if start_analisys:
         # --- VISUALIZZAZIONE ---
         if all_bets:
             st.markdown("### 🔥 Top 3 Migliori Giocate")
-            # Qui ordino per Probabilità per darti le "Sicurissime" nella dashboard in alto
+            # TOP 3 Ordinate per Probabilità (Sicurezza)
             top_bets = sorted(all_bets, key=lambda x: x['prob'], reverse=True)[:3]
             cols = st.columns(3)
             for i, bet in enumerate(top_bets):
