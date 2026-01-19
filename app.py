@@ -5,7 +5,7 @@ import requests
 from scipy.stats import poisson
 
 # Configurazione Pagina
-st.set_page_config(page_title="SmartBet Elite", page_icon="⚽", layout="centered")
+st.set_page_config(page_title="SmartBet Ultra", page_icon="⚽", layout="centered")
 
 # CSS Custom
 st.markdown("""
@@ -16,6 +16,7 @@ st.markdown("""
     .value-box { background-color: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 5px; text-align: center; color: #155724; font-weight: bold; }
     .neutral-box { background-color: #f8f9fa; border: 1px solid #ddd; padding: 10px; border-radius: 5px; text-align: center; color: #666; }
     .small-text { font-size: 0.85em; color: #555; }
+    .prob-text { font-size: 0.8em; font-weight: bold; color: #333; margin-top: 2px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -24,7 +25,7 @@ with st.sidebar:
     st.header("⚙️ Setup")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
-    st.info("v28.0 - Attesi Visibili & Colori Custom")
+    st.success("v29.0 - Tiri, Cartellini e % Visibili")
 
 st.title("⚽ SmartBet AI Dashboard")
 st.caption(f"Bankroll Attuale: €{bankroll_input:.2f}")
@@ -157,7 +158,8 @@ def get_full_stats(home, away, df_teams, df_matches):
     return res
 
 def get_props_list(home_exp, away_exp, label, bankroll):
-    icon_map = {'CORN': '🚩', 'FALLI': '🛑', 'GOL': '⚽'}
+    icon_map = {'CORN': '🚩', 'FALLI': '🛑', 'GOL': '⚽', 'SHOTS': '🎯', 'CARDS': '🟨'}
+    
     if label == 'CORN':
         ranges_indiv = [2.5, 3.5, 4.5, 5.5, 6.5, 7.5]
         ranges_tot = [7.5, 8.5, 9.5, 10.5, 11.5, 12.5]
@@ -167,9 +169,16 @@ def get_props_list(home_exp, away_exp, label, bankroll):
     elif label == 'GOL':
         ranges_indiv = [0.5, 1.5, 2.5]
         ranges_tot = [1.5, 2.5, 3.5]
+    elif label == 'SHOTS':
+        ranges_indiv = [2.5, 3.5, 4.5, 5.5, 6.5]
+        ranges_tot = [7.5, 8.5, 9.5, 10.5, 11.5]
+    elif label == 'CARDS':
+        ranges_indiv = [0.5, 1.5, 2.5]
+        ranges_tot = [2.5, 3.5, 4.5, 5.5]
         
     tot_exp = home_exp + away_exp
     valid_opts = []
+    
     def check(lbl, exp, lines):
         for l in lines:
             p = poisson.sf(int(l), exp)
@@ -178,19 +187,21 @@ def get_props_list(home_exp, away_exp, label, bankroll):
                 stake = round(bankroll * 0.05, 2)
                 if p > 0.80: stake = round(bankroll * 0.10, 2)
                 valid_opts.append({'type': label, 'desc': f"{lbl} Ov {l}", 'prob': p, 'q': q, 'stake': stake})
-    check("CASA", home_exp, ranges_indiv); check("OSP", away_exp, ranges_indiv); check("TOT", tot_exp, ranges_tot)
+            
+    check("CASA", home_exp, ranges_indiv)
+    check("OSP", away_exp, ranges_indiv)
+    check("TOT", tot_exp, ranges_tot)
+    
     return sorted(valid_opts, key=lambda x: x['q'], reverse=True)
 
-# Helper per la barra colorata personalizzata
 def custom_progress(prob):
     pct = int(prob * 100)
-    # COLOR LOGIC RICHIESTA
-    if pct >= 90: color = "#006400" # Verde Scuro
-    elif pct >= 80: color = "#00cc00" # Verde 
-    else: color = "#85e085" # Verde Chiaro (70-79)
+    if pct >= 90: color = "#006400" # Verde Scuro (Top)
+    elif pct >= 80: color = "#00cc00" # Verde (Ottimo)
+    else: color = "#85e085" # Verde Chiaro (Buono)
     
     return f"""
-    <div style="width:100%; background-color: #e0e0e0; border-radius: 5px; height: 8px; margin-top:5px; margin-bottom:5px;">
+    <div style="width:100%; background-color: #e0e0e0; border-radius: 5px; height: 8px; margin-top:5px; margin-bottom:2px;">
         <div style="width:{pct}%; background-color: {color}; height: 8px; border-radius: 5px;"></div>
     </div>
     """
@@ -242,9 +253,12 @@ if start_analisys:
                             fav_team = "🏠" if fav == "CASA" else "✈️"
                             h2h_data.append({'metric': label, 'fav': fav_team, 'prob': prob})
                         
+                        # Generazione Liste
                         list_corn = get_props_list(stats['Corn'][0], stats['Corn'][1], 'CORN', bankroll_input)
                         list_foul = get_props_list(stats['Fouls'][0], stats['Fouls'][1], 'FALLI', bankroll_input)
                         list_gol = get_props_list(lam_h, lam_a, 'GOL', bankroll_input)
+                        list_shots = get_props_list(stats['Shots'][0], stats['Shots'][1], 'SHOTS', bankroll_input)
+                        list_cards = get_props_list(stats['Cards'][0], stats['Cards'][1], 'CARDS', bankroll_input)
                         
                         match_data = {
                             'match': f"{h_team} vs {a_team}",
@@ -253,26 +267,34 @@ if start_analisys:
                             'exp_corn': (stats['Corn'][0], stats['Corn'][1]),
                             'exp_foul': (stats['Fouls'][0], stats['Fouls'][1]),
                             'exp_gol': (lam_h, lam_a),
-                            'corn_bets': list_corn, 'foul_bets': list_foul, 'gol_bets': list_gol
+                            'exp_shots': (stats['Shots'][0], stats['Shots'][1]),
+                            'exp_cards': (stats['Cards'][0], stats['Cards'][1]),
+                            
+                            'corn_bets': list_corn, 'foul_bets': list_foul, 'gol_bets': list_gol, 
+                            'shots_bets': list_shots, 'cards_bets': list_cards
                         }
                         
                         has_val_1x2 = max(roi_1, roi_X, roi_2) > 0.05
-                        if has_val_1x2 or list_corn or list_foul or list_gol:
+                        has_props = list_corn or list_foul or list_gol or list_shots or list_cards
+                        
+                        if has_val_1x2 or has_props:
                             results_by_league[name].append(match_data)
-                            all_bets.extend(list_corn + list_foul + list_gol)
+                            all_bets.extend(list_corn + list_foul + list_gol + list_shots + list_cards)
                                 
             step += 1
             progress.progress(step / len(LEGHE))
             
         status.empty()
         
-        # TOP BETS
         if all_bets:
-            st.markdown("### 🔥 Top 3 Value Picks (Props)")
+            st.markdown("### 🔥 Top 3 Value Picks")
             top_bets = sorted(all_bets, key=lambda x: x['prob'], reverse=True)[:3]
             cols = st.columns(3)
             for i, bet in enumerate(top_bets):
                 icon = '🚩' if bet['type']=='CORN' else '🛑' if bet['type']=='FALLI' else '⚽'
+                if bet['type'] == 'SHOTS': icon = '🎯'
+                elif bet['type'] == 'CARDS': icon = '🟨'
+                
                 with cols[i]:
                     st.info(f"**{icon} {bet['desc']}**")
                     st.metric("Quota", f"{bet['q']:.2f}", f"{bet['prob']*100:.0f}%")
@@ -303,34 +325,61 @@ if start_analisys:
                             st.divider()
                             
                             # H2H
-                            with st.expander("⚔️ Testa a Testa (Chi vince la statistica?)"):
+                            with st.expander("⚔️ Testa a Testa (Stats)"):
                                 h2h_cols = st.columns(4)
                                 for idx, h in enumerate(m['h2h']):
                                     with h2h_cols[idx]:
                                         st.markdown(f"**{h['metric']}**")
                                         st.write(f"{h['fav']} {h['prob']*100:.0f}%")
 
-                            # PROPS CON ATTESI E BARRA COLORATA
-                            if m['corn_bets']:
-                                st.markdown(f"#### 🚩 Corner <span class='small-text'>(Attesi: {m['exp_corn'][0]:.1f} vs {m['exp_corn'][1]:.1f})</span>", unsafe_allow_html=True)
-                                c_cols = st.columns(3)
-                                for idx, p in enumerate(m['corn_bets']):
-                                    with c_cols[idx % 3]:
-                                        st.caption(f"{p['desc']} (@{p['q']:.2f})")
-                                        st.markdown(custom_progress(p['prob']), unsafe_allow_html=True)
+                            # --- PROPS SECTION ---
                             
-                            if m['foul_bets']:
-                                st.markdown(f"#### 🛑 Falli <span class='small-text'>(Attesi: {m['exp_foul'][0]:.1f} vs {m['exp_foul'][1]:.1f})</span>", unsafe_allow_html=True)
-                                f_cols = st.columns(3)
-                                for idx, p in enumerate(m['foul_bets']):
-                                    with f_cols[idx % 3]:
-                                        st.caption(f"{p['desc']} (@{p['q']:.2f})")
-                                        st.markdown(custom_progress(p['prob']), unsafe_allow_html=True)
-                                        
+                            # GOL
                             if m['gol_bets']:
-                                st.markdown(f"#### ⚽ Gol <span class='small-text'>(Attesi: {m['exp_gol'][0]:.1f} vs {m['exp_gol'][1]:.1f})</span>", unsafe_allow_html=True)
-                                g_cols = st.columns(3)
+                                st.markdown(f"#### ⚽ Gol <span class='small-text'>(Att: {m['exp_gol'][0]:.1f} vs {m['exp_gol'][1]:.1f})</span>", unsafe_allow_html=True)
+                                cols = st.columns(3)
                                 for idx, p in enumerate(m['gol_bets']):
-                                    with g_cols[idx % 3]:
+                                    with cols[idx % 3]:
                                         st.caption(f"{p['desc']} (@{p['q']:.2f})")
                                         st.markdown(custom_progress(p['prob']), unsafe_allow_html=True)
+                                        st.markdown(f"<div class='prob-text'>Prob: {p['prob']*100:.0f}%</div>", unsafe_allow_html=True)
+
+                            # CORNER
+                            if m['corn_bets']:
+                                st.markdown(f"#### 🚩 Corner <span class='small-text'>(Att: {m['exp_corn'][0]:.1f} vs {m['exp_corn'][1]:.1f})</span>", unsafe_allow_html=True)
+                                cols = st.columns(3)
+                                for idx, p in enumerate(m['corn_bets']):
+                                    with cols[idx % 3]:
+                                        st.caption(f"{p['desc']} (@{p['q']:.2f})")
+                                        st.markdown(custom_progress(p['prob']), unsafe_allow_html=True)
+                                        st.markdown(f"<div class='prob-text'>Prob: {p['prob']*100:.0f}%</div>", unsafe_allow_html=True)
+
+                            # FALLI
+                            if m['foul_bets']:
+                                st.markdown(f"#### 🛑 Falli <span class='small-text'>(Att: {m['exp_foul'][0]:.1f} vs {m['exp_foul'][1]:.1f})</span>", unsafe_allow_html=True)
+                                cols = st.columns(3)
+                                for idx, p in enumerate(m['foul_bets']):
+                                    with cols[idx % 3]:
+                                        st.caption(f"{p['desc']} (@{p['q']:.2f})")
+                                        st.markdown(custom_progress(p['prob']), unsafe_allow_html=True)
+                                        st.markdown(f"<div class='prob-text'>Prob: {p['prob']*100:.0f}%</div>", unsafe_allow_html=True)
+
+                            # TIRI
+                            if m['shots_bets']:
+                                st.markdown(f"#### 🎯 Tiri Porta <span class='small-text'>(Att: {m['exp_shots'][0]:.1f} vs {m['exp_shots'][1]:.1f})</span>", unsafe_allow_html=True)
+                                cols = st.columns(3)
+                                for idx, p in enumerate(m['shots_bets']):
+                                    with cols[idx % 3]:
+                                        st.caption(f"{p['desc']} (@{p['q']:.2f})")
+                                        st.markdown(custom_progress(p['prob']), unsafe_allow_html=True)
+                                        st.markdown(f"<div class='prob-text'>Prob: {p['prob']*100:.0f}%</div>", unsafe_allow_html=True)
+
+                            # CARDS
+                            if m['cards_bets']:
+                                st.markdown(f"#### 🟨 Cartellini <span class='small-text'>(Att: {m['exp_cards'][0]:.1f} vs {m['exp_cards'][1]:.1f})</span>", unsafe_allow_html=True)
+                                cols = st.columns(3)
+                                for idx, p in enumerate(m['cards_bets']):
+                                    with cols[idx % 3]:
+                                        st.caption(f"{p['desc']} (@{p['q']:.2f})")
+                                        st.markdown(custom_progress(p['prob']), unsafe_allow_html=True)
+                                        st.markdown(f"<div class='prob-text'>Prob: {p['prob']*100:.0f}%</div>", unsafe_allow_html=True)
