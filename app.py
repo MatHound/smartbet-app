@@ -5,8 +5,15 @@ import requests
 from scipy.stats import poisson
 from datetime import datetime, timedelta
 
-# Configurazione Pagina
+# ==============================================================================
+# 1. CONFIGURAZIONE E COSTANTI (SPOSTATE IN ALTO PER SICUREZZA)
+# ==============================================================================
 st.set_page_config(page_title="SmartBet Global", page_icon="🌍", layout="centered")
+
+# COSTANTI GLOBALI
+STAGIONE = "2526"
+REGION = 'eu'
+MARKET = 'h2h'
 
 # CSS Custom
 st.markdown("""
@@ -32,17 +39,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- DATABASE CAMPIONATI ESTESO ---
-# Codici Football-Data.co.uk : Nome Leggibile
+# DATABASE LEGHE
 ALL_LEAGUES = {
-    # TIER 1 (I Big)
     'I1': '🇮🇹 ITA - Serie A',
     'E0': '🇬🇧 ENG - Premier League',
     'SP1': '🇪🇸 ESP - La Liga',
     'D1': '🇩🇪 GER - Bundesliga',
     'F1': '🇫🇷 FRA - Ligue 1',
-    
-    # TIER 2 (Le Miniere d'Oro)
     'I2': '🇮🇹 ITA - Serie B',
     'E1': '🇬🇧 ENG - Championship',
     'N1': '🇳🇱 NED - Eredivisie',
@@ -51,24 +54,15 @@ ALL_LEAGUES = {
     'T1': '🇹🇷 TUR - Super Lig'
 }
 
-# Mapping API (The-Odds-API) per le nuove leghe
 API_MAPPING = {
-    'I1': 'soccer_italy_serie_a',
-    'I2': 'soccer_italy_serie_b',
-    'E0': 'soccer_epl',
-    'E1': 'soccer_efl_champ',
-    'SP1': 'soccer_spain_la_liga',
-    'D1': 'soccer_germany_bundesliga',
-    'F1': 'soccer_france_ligue_one',
-    'N1': 'soccer_netherlands_eredivisie',
-    'P1': 'soccer_portugal_primeira_liga',
-    'B1': 'soccer_belgium_pro_league',
+    'I1': 'soccer_italy_serie_a', 'I2': 'soccer_italy_serie_b',
+    'E0': 'soccer_epl', 'E1': 'soccer_efl_champ',
+    'SP1': 'soccer_spain_la_liga', 'D1': 'soccer_germany_bundesliga',
+    'F1': 'soccer_france_ligue_one', 'N1': 'soccer_netherlands_eredivisie',
+    'P1': 'soccer_portugal_primeira_liga', 'B1': 'soccer_belgium_pro_league',
     'T1': 'soccer_turkey_super_league'
 }
 
-# Mapping Squadre (Esteso e Generico)
-# Nota: Per le leghe minori i nomi potrebbero variare, ma spesso coincidono.
-# Se mancano, il software usa il nome originale dell'API.
 TEAM_MAPPING = {
     'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Juventus': 'Juve', 
     'Napoli': 'Napoli', 'Roma': 'Roma', 'Lazio': 'Lazio',
@@ -79,30 +73,10 @@ TEAM_MAPPING = {
     'Galatasaray': 'Galatasaray', 'Fenerbahce': 'Fenerbahce', 'Besiktas': 'Besiktas'
 }
 
-# SIDEBAR
-with st.sidebar:
-    st.header("⚙️ Setup")
-    api_key_input = st.text_input("API Key", type="password")
-    bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
-    
-    st.divider()
-    st.markdown("### 🏆 Seleziona Campionati")
-    # Multiselect per scegliere cosa analizzare
-    selected_leagues_keys = st.multiselect(
-        "Scegli le leghe:",
-        options=list(ALL_LEAGUES.keys()),
-        format_func=lambda x: ALL_LEAGUES[x],
-        default=['I1', 'E0', 'SP1', 'D1', 'F1'] # Default: Big 5
-    )
-    
-    st.info(f"Leghe selezionate: {len(selected_leagues_keys)}")
+# ==============================================================================
+# 2. FUNZIONI CORE
+# ==============================================================================
 
-st.title("📟 SmartBet AI Terminal")
-st.caption(f"Bankroll Attuale: €{bankroll_input:.2f}")
-
-start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
-
-# --- FUNZIONI DATETIME ---
 def parse_date(iso_date_str):
     try:
         dt = datetime.strptime(iso_date_str, "%Y-%m-%dT%H:%M:%SZ")
@@ -113,6 +87,7 @@ def parse_date(iso_date_str):
 
 @st.cache_data(ttl=3600)
 def scarica_dati(codice_lega):
+    # Usa la costante STAGIONE definita in alto
     url = f"https://www.football-data.co.uk/mmz4281/{STAGIONE}/{codice_lega}.csv"
     try:
         df = pd.read_csv(url)
@@ -120,15 +95,11 @@ def scarica_dati(codice_lega):
         df = df.sort_values('Date')
         df['HomeTeam'] = df['HomeTeam'].str.strip(); df['AwayTeam'] = df['AwayTeam'].str.strip()
         
-        # Filtro colonne necessarie (gestione leghe minori che potrebbero non avere tutto)
-        needed = ['Date','HomeTeam','AwayTeam','FTHG','FTAG'] # Minimo sindacale
+        needed = ['Date','HomeTeam','AwayTeam','FTHG','FTAG']
         if not all(col in df.columns for col in needed): return None, None
         
-        # Standardizza nomi colonne se mancano (es. Serie B a volte ha meno stats)
-        # Qui assumiamo che football-data mantenga lo standard HC, AC, ecc.
-        # Se mancano, mettiamo 0 per non rompere il codice
         for col in ['HST','AST','HC','AC','HF','AF','HY','AY']:
-            if col not in df.columns: df[col] = 0 # Fallback a 0
+            if col not in df.columns: df[col] = 0
             
         df_temp = pd.concat([
             df[['Date','HomeTeam','FTAG']].rename(columns={'HomeTeam':'Team','FTAG':'Conceded'}),
@@ -161,7 +132,6 @@ def get_live_matches(api_key, sport_key):
 def calcola_1x2_lambda(exp_shots_h, exp_shots_a):
     lam_h = exp_shots_h * 0.30 if exp_shots_h > 0 else 1.0
     lam_a = exp_shots_a * 0.30 if exp_shots_a > 0 else 0.8
-    
     mat = np.zeros((6,6))
     for i in range(6):
         for j in range(6):
@@ -187,7 +157,6 @@ def get_full_stats(home, away, df_teams, df_matches):
     for name, ch, ca in config:
         avg_L_h = df_matches[ch].mean() if df_matches[ch].mean() > 0 else 1
         avg_L_a = df_matches[ca].mean() if df_matches[ca].mean() > 0 else 1
-        
         att_h = s_h[f'W_{name}For'] / avg_L_h; def_a = s_a[f'W_{name}Ag'] / avg_L_h; exp_h = att_h * def_a * avg_L_h
         att_a = s_a[f'W_{name}For'] / avg_L_a; def_h = s_h[f'W_{name}Ag'] / avg_L_a; exp_a = att_a * def_h * avg_L_a
         res[name] = (exp_h, exp_a)
@@ -249,6 +218,30 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
     html += "</div>"
     return html
 
+# ==============================================================================
+# 3. INTERFACCIA UTENTE
+# ==============================================================================
+
+with st.sidebar:
+    st.header("⚙️ Setup")
+    api_key_input = st.text_input("API Key", type="password")
+    bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
+    
+    st.divider()
+    st.markdown("### 🏆 Seleziona Campionati")
+    selected_leagues_keys = st.multiselect(
+        "Scegli le leghe:",
+        options=list(ALL_LEAGUES.keys()),
+        format_func=lambda x: ALL_LEAGUES[x],
+        default=['I1', 'E0', 'SP1', 'D1', 'F1']
+    )
+    st.info(f"Leghe selezionate: {len(selected_leagues_keys)}")
+
+st.title("📟 SmartBet AI Terminal")
+st.caption(f"Bankroll Attuale: €{bankroll_input:.2f}")
+
+start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
+
 # MAIN LOOP
 if start_analisys:
     if not api_key_input:
@@ -272,7 +265,7 @@ if start_analisys:
             df_teams, df_matches = scarica_dati(code)
             
             if df_teams is not None:
-                matches = get_live_matches(api_key_input, API_MAPPING[code])
+                matches = get_live_matches(api_key_input, API_MAPPING.get(code, ''))
                 if matches:
                     for m in matches:
                         if 'home_team' not in m: continue
@@ -336,4 +329,4 @@ if start_analisys:
                         for match in filtered:
                             with st.expander(match['label']): st.markdown(match['html'], unsafe_allow_html=True)
                     else: st.warning("Nessuna partita in questa data.")
-            else: st.write("Nessun dato.")
+            else: st.write("Nessun dato disponibile.")
