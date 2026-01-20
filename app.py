@@ -5,7 +5,7 @@ import requests
 from scipy.stats import poisson
 
 # Configurazione Pagina
-st.set_page_config(page_title="SmartBet Strict", page_icon="⚽", layout="centered")
+st.set_page_config(page_title="SmartBet Hybrid", page_icon="⚽", layout="centered")
 
 # CSS Custom
 st.markdown("""
@@ -13,9 +13,7 @@ st.markdown("""
     div[data-testid="column"] { background-color: #f9f9f9; border-radius: 5px; padding: 10px; border: 1px solid #ddd; }
     h4 { margin-top: 0px; margin-bottom: 5px; font-size: 1rem; }
     .stMetric { text-align: center; }
-    /* Value Box Verde Scuro/Forte per ROI > 15% */
     .value-box { background-color: #d4edda; border: 2px solid #28a745; padding: 10px; border-radius: 5px; text-align: center; color: #155724; font-weight: bold; }
-    /* Neutral Box per ROI basso o negativo */
     .neutral-box { background-color: #f8f9fa; border: 1px solid #ddd; padding: 10px; border-radius: 5px; text-align: center; color: #666; }
     .small-text { font-size: 0.85em; color: #555; }
     .prob-text { font-size: 0.8em; font-weight: bold; color: #333; margin-top: 2px; }
@@ -27,8 +25,8 @@ with st.sidebar:
     st.header("⚙️ Setup")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
-    min_quota_filter = st.slider("Filtro Quota Minima (Props)", 1.10, 1.50, 1.25, step=0.05)
-    st.info(f"v31.0 - 1X2 Verde solo se Q<5 e ROI>15%")
+    min_quota_filter = st.slider("Filtro Quota (Vista Smart)", 1.10, 1.50, 1.25, step=0.05)
+    st.info(f"v32.0 - Vista Terminale Inclusa")
 
 st.title("⚽ SmartBet AI Dashboard")
 st.caption(f"Bankroll Attuale: €{bankroll_input:.2f}")
@@ -160,9 +158,43 @@ def get_full_stats(home, away, df_teams, df_matches):
         res[name] = (exp_h, exp_a)
     return res
 
-def get_props_list(home_exp, away_exp, label, bankroll, min_quota):
-    icon_map = {'CORN': '🚩', 'FALLI': '🛑', 'GOL': '⚽', 'SHOTS': '🎯', 'CARDS': '🟨'}
+# FUNZIONE PER GENERARE IL REPORT VECCHIO STILE (RAW)
+def generate_terminal_report(h_team, a_team, stats, lam_h, lam_a):
+    output = f"ANALISI RAW: {h_team} vs {a_team}\n"
+    output += "="*40 + "\n"
     
+    # Configurazione Range (uguale al vecchio script)
+    configs = [
+        ("CORNER", stats['Corn'][0], stats['Corn'][1], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [8.5, 9.5, 10.5]),
+        ("TIRI PORTA", stats['Shots'][0], stats['Shots'][1], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [7.5, 8.5, 9.5]),
+        ("FALLI", stats['Fouls'][0], stats['Fouls'][1], [10.5, 11.5, 12.5], [10.5, 11.5, 12.5], [21.5, 22.5, 23.5]),
+        ("GOL (Est.)", lam_h, lam_a, [0.5, 1.5], [0.5, 1.5], [1.5, 2.5, 3.5])
+    ]
+    
+    for label, exp_h, exp_a, r_h, r_a, r_tot in configs:
+        output += f"\n>>> {label} (Att: {exp_h:.2f} - {exp_a:.2f} | Tot: {exp_h+exp_a:.2f})\n"
+        output += f"{'LINEA':<12} | {'PROB %':<6} | {'QUOTA':<6}\n"
+        output += "-"*35 + "\n"
+        
+        # Casa
+        for l in r_h:
+            p = poisson.sf(int(l), exp_h)
+            output += f"{'CASA Ov '+str(l):<12} | {p*100:04.1f}% | {1/p if p>0 else 99:.2f}\n"
+        
+        # Ospite
+        for l in r_a:
+            p = poisson.sf(int(l), exp_a)
+            output += f"{'OSP Ov '+str(l):<12} | {p*100:04.1f}% | {1/p if p>0 else 99:.2f}\n"
+            
+        # Totale
+        for l in r_tot:
+            p = poisson.sf(int(l), exp_h+exp_a)
+            output += f"{'TOT Ov '+str(l):<12} | {p*100:04.1f}% | {1/p if p>0 else 99:.2f}\n"
+
+    return output
+
+def get_props_list(home_exp, away_exp, label, bankroll, min_quota):
+    # Logica Smart (Filtrata)
     if label == 'CORN':
         ranges_indiv = [2.5, 3.5, 4.5, 5.5, 6.5, 7.5]
         ranges_tot = [7.5, 8.5, 9.5, 10.5, 11.5, 12.5]
@@ -203,12 +235,7 @@ def custom_progress(prob):
     if pct >= 90: color = "#006400"
     elif pct >= 80: color = "#00cc00"
     else: color = "#85e085"
-    
-    return f"""
-    <div style="width:100%; background-color: #e0e0e0; border-radius: 5px; height: 8px; margin-top:5px; margin-bottom:2px;">
-        <div style="width:{pct}%; background-color: {color}; height: 8px; border-radius: 5px;"></div>
-    </div>
-    """
+    return f"""<div style="width:100%; background-color: #e0e0e0; border-radius: 5px; height: 8px; margin-top:5px; margin-bottom:2px;"><div style="width:{pct}%; background-color: {color}; height: 8px; border-radius: 5px;"></div></div>"""
 
 # MAIN LOOP
 if start_analisys:
@@ -270,6 +297,9 @@ if start_analisys:
                             for b in l:
                                 b['match'] = match_name
                         
+                        # Generazione Report Terminale
+                        raw_report = generate_terminal_report(h_team, a_team, stats, lam_h, lam_a)
+
                         match_data = {
                             'match': match_name,
                             '1x2': {'1': {'q': q1_b, 'roi': roi_1}, 'X': {'q': qX_b, 'roi': roi_X}, '2': {'q': q2_b, 'roi': roi_2}},
@@ -280,7 +310,8 @@ if start_analisys:
                             'exp_shots': (stats['Shots'][0], stats['Shots'][1]),
                             'exp_cards': (stats['Cards'][0], stats['Cards'][1]),
                             'corn_bets': list_corn, 'foul_bets': list_foul, 'gol_bets': list_gol, 
-                            'shots_bets': list_shots, 'cards_bets': list_cards
+                            'shots_bets': list_shots, 'cards_bets': list_cards,
+                            'raw_text': raw_report
                         }
                         
                         has_val_1x2 = max(roi_1, roi_X, roi_2) > 0.05
@@ -327,7 +358,6 @@ if start_analisys:
                             c1, c2, c3 = st.columns(3)
                             
                             def show_box(col, label, data):
-                                # CONDIZIONE: Verde solo se Q <= 5.0 e ROI >= 15%
                                 is_green = (data['q'] <= 5.0 and data['roi'] >= 0.15)
                                 style = "value-box" if is_green else "neutral-box"
                                 val_txt = f"+{data['roi']*100:.0f}%" if data['roi'] > 0 else "-"
@@ -359,3 +389,8 @@ if start_analisys:
                             show_props("🛑 Falli", m['foul_bets'], m['exp_foul'])
                             show_props("🎯 Tiri Porta", m['shots_bets'], m['exp_shots'])
                             show_props("🟨 Cartellini", m['cards_bets'], m['exp_cards'])
+                            
+                            # --- SEZIONE TERMINALE (RAW) ---
+                            st.markdown("---")
+                            with st.expander("📟 Vista Terminale (Dati Grezzi)"):
+                                st.code(m['raw_text'], language='text')
