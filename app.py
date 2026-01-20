@@ -56,7 +56,7 @@ API_MAPPING = {
     'T1': 'soccer_turkey_super_league'
 }
 
-# --- MEGA MAPPING AGGIORNATO (API NAME -> CSV NAME) ---
+# --- MEGA MAPPING AGGIORNATO (Versione 38.1 con UK FIX) ---
 TEAM_MAPPING = {
     # ITALIA
     'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Juventus': 'Juve', 'Napoli': 'Napoli', 
@@ -70,42 +70,63 @@ TEAM_MAPPING = {
     'Cosenza': 'Cosenza', 'Sudtirol': 'Sudtirol', 'Cittadella': 'Cittadella', 'Mantova': 'Mantova',
     'Cesena': 'Cesena', 'Juve Stabia': 'Juve Stabia', 'Carrarese': 'Carrarese',
     
-    # INGHILTERRA
+    # INGHILTERRA (Premier + Championship + League One Updates)
     'Manchester United': 'Man United', 'Manchester City': 'Man City', 'Tottenham Hotspur': 'Tottenham',
     'Newcastle United': 'Newcastle', 'Wolverhampton Wanderers': 'Wolves', 'Brighton and Hove Albion': 'Brighton',
     'West Ham United': 'West Ham', 'Leeds United': 'Leeds', 'Nottingham Forest': "Nott'm Forest",
     'Leicester City': 'Leicester', 'Norwich City': 'Norwich', 'Sheffield United': 'Sheffield United',
     'Blackburn Rovers': 'Blackburn', 'West Bromwich Albion': 'West Brom', 'Coventry City': 'Coventry',
     'Middlesbrough': 'Middlesbrough', 'Stoke City': 'Stoke', 'Queens Park Rangers': 'QPR',
-    'Preston North End': 'Preston', 'Sheffield Wednesday': 'Sheffield Weds',
+    'Preston North End': 'Preston', 'Sheffield Wednesday': 'Sheffield Weds', 'Luton Town': 'Luton',
+    'Burnley': 'Burnley', 'Watford': 'Watford', 'Sunderland AFC': 'Sunderland', 'Sunderland': 'Sunderland',
+    
+    # FIX RICHIESTI DALL'UTENTE (E1 - Championship/League One)
+    'Derby County': 'Derby',
+    'Birmingham City': 'Birmingham',
+    'Swansea City': 'Swansea',
+    'Wrexham AFC': 'Wrexham',
+    'Oxford United': 'Oxford',
+    'Charlton Athletic': 'Charlton',
+    'Ipswich Town': 'Ipswich',
+    'Hull City': 'Hull',
+    'Bristol City': 'Bristol City', 'Cardiff City': 'Cardiff', 'Portsmouth': 'Portsmouth', 
+    'Plymouth Argyle': 'Plymouth', 'Millwall': 'Millwall',
     
     # SPAGNA
     'Atletico Madrid': 'Ath Madrid', 'Athletic Bilbao': 'Ath Bilbao', 'Real Betis': 'Betis',
     'Real Sociedad': 'Sociedad', 'Rayo Vallecano': 'Vallecano', 'Celta Vigo': 'Celta', 
     'Alavés': 'Alaves', 'Cadiz CF': 'Cadiz', 'UD Las Palmas': 'Las Palmas', 'RCD Espanyol': 'Espanyol',
+    'Real Valladolid': 'Valladolid', 'Leganés': 'Leganes', 'Girona FC': 'Girona',
     
     # GERMANIA
     'Bayern Munich': 'Bayern Munich', 'Bayer Leverkusen': 'Leverkusen', 'Borussia Dortmund': 'Dortmund',
     'Borussia Monchengladbach': "M'gladbach", 'Eintracht Frankfurt': 'Ein Frankfurt', 
     'SC Freiburg': 'Freiburg', '1. FC Köln': 'FC Koln', 'Mainz 05': 'Mainz', 'VfL Bochum': 'Bochum',
     'VfB Stuttgart': 'Stuttgart', 'FC St. Pauli': 'St Pauli', 'Holstein Kiel': 'Holstein Kiel',
+    'TSG Hoffenheim': 'Hoffenheim', 'Werder Bremen': 'Werder Bremen', 'Augsburg': 'Augsburg',
     
     # FRANCIA
     'Paris Saint Germain': 'Paris SG', 'Marseille': 'Marseille', 'Saint-Etienne': 'St Etienne',
-    'Clermont Foot': 'Clermont', 'Le Havre': 'Le Havre',
+    'Clermont Foot': 'Clermont', 'Le Havre': 'Le Havre', 'RC Lens': 'Lens', 'AS Monaco': 'Monaco',
+    'Lille OSC': 'Lille', 'Olympique Lyonnais': 'Lyon',
     
-    # OLANDA (Eredivisie)
+    # OLANDA
     'PSV Eindhoven': 'PSV Eindhoven', 'Feyenoord Rotterdam': 'Feyenoord', 'Ajax Amsterdam': 'Ajax',
     'AZ Alkmaar': 'AZ Alkmaar', 'FC Twente': 'Twente', 'FC Utrecht': 'Utrecht',
-    'Sparta Rotterdam': 'Sparta Rotterdam', 'NEC Nijmegen': 'nijmegen', 'Go Ahead Eagles': 'Go Ahead Eagles',
+    'Sparta Rotterdam': 'Sparta Rotterdam', 'NEC Nijmegen': 'Nijmegen', 'Go Ahead Eagles': 'Go Ahead Eagles',
+    'Fortuna Sittard': 'For Sittard', 'PEC Zwolle': 'Zwolle', 'Almere City': 'Almere City',
+    'RKC Waalwijk': 'Waalwijk', 'SC Heerenveen': 'Heerenveen', 'Heracles Almelo': 'Heracles',
     
     # PORTOGALLO
-    'Sporting CP': 'Sp Lisbon', 'Sporting Lisbon': 'Sp Lisbon', # CRITICO
+    'Sporting CP': 'Sp Lisbon', 'Sporting Lisbon': 'Sp Lisbon', 
     'Benfica': 'Benfica', 'FC Porto': 'Porto', 'Sporting Braga': 'Braga', 'Vitoria Guimaraes': 'Guimaraes',
+    'Boavista FC': 'Boavista', 'Estoril Praia': 'Estoril', 'Casa Pia AC': 'Casa Pia',
+    'Farense': 'Farense', 'Arouca': 'Arouca', 'Gil Vicente': 'Gil Vicente',
     
     # TURCHIA
     'Galatasaray': 'Galatasaray', 'Fenerbahce': 'Fenerbahce', 'Besiktas': 'Besiktas', 
-    'Trabzonspor': 'Trabzonspor', 'Istanbul Basaksehir': 'Basaksehir'
+    'Trabzonspor': 'Trabzonspor', 'Istanbul Basaksehir': 'Basaksehir', 'Samsunspor': 'Samsunspor',
+    'Kasimpasa': 'Kasimpasa', 'Alanyaspor': 'Alanyaspor', 'Antalyaspor': 'Antalyaspor'
 }
 
 # ==============================================================================
