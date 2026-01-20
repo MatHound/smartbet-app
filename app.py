@@ -6,7 +6,7 @@ from scipy.stats import poisson
 from datetime import datetime, timedelta
 
 # ==============================================================================
-# 1. CONFIGURAZIONE E COSTANTI (SPOSTATE IN ALTO PER SICUREZZA)
+# 1. CONFIGURAZIONE E COSTANTI
 # ==============================================================================
 st.set_page_config(page_title="SmartBet Global", page_icon="🌍", layout="centered")
 
@@ -41,17 +41,10 @@ st.markdown("""
 
 # DATABASE LEGHE
 ALL_LEAGUES = {
-    'I1': '🇮🇹 ITA - Serie A',
-    'E0': '🇬🇧 ENG - Premier League',
-    'SP1': '🇪🇸 ESP - La Liga',
-    'D1': '🇩🇪 GER - Bundesliga',
-    'F1': '🇫🇷 FRA - Ligue 1',
-    'I2': '🇮🇹 ITA - Serie B',
-    'E1': '🇬🇧 ENG - Championship',
-    'N1': '🇳🇱 NED - Eredivisie',
-    'P1': '🇵🇹 POR - Primeira Liga',
-    'B1': '🇧🇪 BEL - Pro League',
-    'T1': '🇹🇷 TUR - Super Lig'
+    'I1': '🇮🇹 ITA - Serie A', 'E0': '🇬🇧 ENG - Premier League', 'SP1': '🇪🇸 ESP - La Liga',
+    'D1': '🇩🇪 GER - Bundesliga', 'F1': '🇫🇷 FRA - Ligue 1', 'I2': '🇮🇹 ITA - Serie B',
+    'E1': '🇬🇧 ENG - Championship', 'N1': '🇳🇱 NED - Eredivisie', 'P1': '🇵🇹 POR - Primeira Liga',
+    'B1': '🇧🇪 BEL - Pro League', 'T1': '🇹🇷 TUR - Super Lig'
 }
 
 API_MAPPING = {
@@ -63,14 +56,56 @@ API_MAPPING = {
     'T1': 'soccer_turkey_super_league'
 }
 
+# --- MEGA MAPPING AGGIORNATO (API NAME -> CSV NAME) ---
 TEAM_MAPPING = {
-    'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Juventus': 'Juve', 
-    'Napoli': 'Napoli', 'Roma': 'Roma', 'Lazio': 'Lazio',
-    'Manchester United': 'Man Utd', 'Manchester City': 'Man City',
-    'Paris Saint Germain': 'PSG', 'Bayern Munich': 'Bayern',
-    'Sporting CP': 'Sporting', 'Benfica': 'Benfica', 'Porto': 'Porto',
-    'Ajax': 'Ajax', 'PSV Eindhoven': 'PSV', 'Feyenoord': 'Feyenoord',
-    'Galatasaray': 'Galatasaray', 'Fenerbahce': 'Fenerbahce', 'Besiktas': 'Besiktas'
+    # ITALIA
+    'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Juventus': 'Juve', 'Napoli': 'Napoli', 
+    'Roma': 'Roma', 'Lazio': 'Lazio', 'Atalanta BC': 'Atalanta', 'Hellas Verona': 'Verona',
+    'Udinese Calcio': 'Udinese', 'Cagliari Calcio': 'Cagliari', 'US Lecce': 'Lecce', 
+    'Empoli FC': 'Empoli', 'Sassuolo Calcio': 'Sassuolo', 'Salernitana': 'Salernitana', 
+    'Monza': 'Monza', 'Frosinone': 'Frosinone', 'Genoa': 'Genoa', 'Parma': 'Parma', 
+    'Como': 'Como', 'Venezia': 'Venezia', 'Pisa': 'Pisa', 'Cremonese': 'Cremonese',
+    'Palermo': 'Palermo', 'Bari': 'Bari', 'Sampdoria': 'Sampdoria', 'Spezia Calcio': 'Spezia',
+    'Modena FC': 'Modena', 'Catanzaro': 'Catanzaro', 'Reggiana': 'Reggiana', 'Brescia': 'Brescia',
+    'Cosenza': 'Cosenza', 'Sudtirol': 'Sudtirol', 'Cittadella': 'Cittadella', 'Mantova': 'Mantova',
+    'Cesena': 'Cesena', 'Juve Stabia': 'Juve Stabia', 'Carrarese': 'Carrarese',
+    
+    # INGHILTERRA
+    'Manchester United': 'Man United', 'Manchester City': 'Man City', 'Tottenham Hotspur': 'Tottenham',
+    'Newcastle United': 'Newcastle', 'Wolverhampton Wanderers': 'Wolves', 'Brighton and Hove Albion': 'Brighton',
+    'West Ham United': 'West Ham', 'Leeds United': 'Leeds', 'Nottingham Forest': "Nott'm Forest",
+    'Leicester City': 'Leicester', 'Norwich City': 'Norwich', 'Sheffield United': 'Sheffield United',
+    'Blackburn Rovers': 'Blackburn', 'West Bromwich Albion': 'West Brom', 'Coventry City': 'Coventry',
+    'Middlesbrough': 'Middlesbrough', 'Stoke City': 'Stoke', 'Queens Park Rangers': 'QPR',
+    'Preston North End': 'Preston', 'Sheffield Wednesday': 'Sheffield Weds',
+    
+    # SPAGNA
+    'Atletico Madrid': 'Ath Madrid', 'Athletic Bilbao': 'Ath Bilbao', 'Real Betis': 'Betis',
+    'Real Sociedad': 'Sociedad', 'Rayo Vallecano': 'Vallecano', 'Celta Vigo': 'Celta', 
+    'Alavés': 'Alaves', 'Cadiz CF': 'Cadiz', 'UD Las Palmas': 'Las Palmas', 'RCD Espanyol': 'Espanyol',
+    
+    # GERMANIA
+    'Bayern Munich': 'Bayern Munich', 'Bayer Leverkusen': 'Leverkusen', 'Borussia Dortmund': 'Dortmund',
+    'Borussia Monchengladbach': "M'gladbach", 'Eintracht Frankfurt': 'Ein Frankfurt', 
+    'SC Freiburg': 'Freiburg', '1. FC Köln': 'FC Koln', 'Mainz 05': 'Mainz', 'VfL Bochum': 'Bochum',
+    'VfB Stuttgart': 'Stuttgart', 'FC St. Pauli': 'St Pauli', 'Holstein Kiel': 'Holstein Kiel',
+    
+    # FRANCIA
+    'Paris Saint Germain': 'Paris SG', 'Marseille': 'Marseille', 'Saint-Etienne': 'St Etienne',
+    'Clermont Foot': 'Clermont', 'Le Havre': 'Le Havre',
+    
+    # OLANDA (Eredivisie)
+    'PSV Eindhoven': 'PSV Eindhoven', 'Feyenoord Rotterdam': 'Feyenoord', 'Ajax Amsterdam': 'Ajax',
+    'AZ Alkmaar': 'AZ Alkmaar', 'FC Twente': 'Twente', 'FC Utrecht': 'Utrecht',
+    'Sparta Rotterdam': 'Sparta Rotterdam', 'NEC Nijmegen': 'nijmegen', 'Go Ahead Eagles': 'Go Ahead Eagles',
+    
+    # PORTOGALLO
+    'Sporting CP': 'Sp Lisbon', 'Sporting Lisbon': 'Sp Lisbon', # CRITICO
+    'Benfica': 'Benfica', 'FC Porto': 'Porto', 'Sporting Braga': 'Braga', 'Vitoria Guimaraes': 'Guimaraes',
+    
+    # TURCHIA
+    'Galatasaray': 'Galatasaray', 'Fenerbahce': 'Fenerbahce', 'Besiktas': 'Besiktas', 
+    'Trabzonspor': 'Trabzonspor', 'Istanbul Basaksehir': 'Basaksehir'
 }
 
 # ==============================================================================
@@ -87,7 +122,6 @@ def parse_date(iso_date_str):
 
 @st.cache_data(ttl=3600)
 def scarica_dati(codice_lega):
-    # Usa la costante STAGIONE definita in alto
     url = f"https://www.football-data.co.uk/mmz4281/{STAGIONE}/{codice_lega}.csv"
     try:
         df = pd.read_csv(url)
@@ -164,8 +198,6 @@ def get_full_stats(home, away, df_teams, df_matches):
 
 def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, roi_1x2):
     html = f"""<div class='terminal-box'>"""
-    
-    # 1X2
     html += f"<span class='term-section'>[ 1X2 ANALYSIS ]</span>\n"
     html += f"{'SEGNO':<6} | {'MY QUOTA':<10} | {'BOOKIE':<8} | {'VALUE'}\n"
     html += "-"*45 + "\n"
@@ -177,7 +209,6 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
         elif roi > 0: val_str = f"<span class='term-green'>{val_str}</span>"
         html += f"{segno:<6} | {my_q:<10.2f} | {book_q:<8.2f} | {val_str}\n"
 
-    # H2H
     html += f"\n<span class='term-section'>[ TESTA A TESTA ]</span>\n"
     metrics_cfg = [("Tiri Porta", 'Shots'), ("Corner", 'Corn'), ("Falli", 'Fouls'), ("Cartellini", 'Cards')]
     for label, key in metrics_cfg:
@@ -190,7 +221,6 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
             if pa > 0.70: fav_str = f"<span class='term-green'>{fav_str}</span>"
         html += f"{label:<12} : {fav_str}\n"
 
-    # PROPS
     prop_configs = [
         ("CORNER", stats['Corn'][0], stats['Corn'][1], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [8.5, 9.5, 10.5]),
         ("TIRI PORTA", stats['Shots'][0], stats['Shots'][1], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [7.5, 8.5, 9.5]),
@@ -235,6 +265,11 @@ with st.sidebar:
         format_func=lambda x: ALL_LEAGUES[x],
         default=['I1', 'E0', 'SP1', 'D1', 'F1']
     )
+    
+    st.divider()
+    # IL BOTTONE MAGICO
+    show_mapping_errors = st.checkbox("🛠️ Mostra Errori Mapping", value=False)
+    
     st.info(f"Leghe selezionate: {len(selected_leagues_keys)}")
 
 st.title("📟 SmartBet AI Terminal")
@@ -251,6 +286,7 @@ if start_analisys:
     else:
         results_by_league = {ALL_LEAGUES[k]: [] for k in selected_leagues_keys}
         global_calendar_data = [] 
+        missing_teams_log = [] # Lista per errori
         
         progress = st.progress(0)
         status = st.empty()
@@ -266,11 +302,26 @@ if start_analisys:
             
             if df_teams is not None:
                 matches = get_live_matches(api_key_input, API_MAPPING.get(code, ''))
+                
+                # Check se abbiamo le squadre in DF
+                available_teams = set(df_teams['Team'].unique())
+                
                 if matches:
                     for m in matches:
                         if 'home_team' not in m: continue
-                        h, a = m['home_team'], m['away_team']
-                        h_team = TEAM_MAPPING.get(h, h); a_team = TEAM_MAPPING.get(a, a)
+                        
+                        # LOGICA MAPPING SQUADRE
+                        h_raw, a_raw = m['home_team'], m['away_team']
+                        h_team = TEAM_MAPPING.get(h_raw, h_raw)
+                        a_team = TEAM_MAPPING.get(a_raw, a_raw)
+                        
+                        # CHECK DEBUG: Se la squadra non c'è nel CSV, segnalalo
+                        if h_team not in available_teams:
+                            missing_teams_log.append(f"LEGA {code}: '{h_raw}' (API) -> Non trovato nel CSV (Mapping mancante?)")
+                            continue # Salta match
+                        if a_team not in available_teams:
+                            missing_teams_log.append(f"LEGA {code}: '{a_raw}' (API) -> Non trovato nel CSV (Mapping mancante?)")
+                            continue # Salta match
                         
                         raw_date_obj, fmt_date_str = parse_date(m.get('commence_time', ''))
                         
@@ -279,9 +330,9 @@ if start_analisys:
                             for mk in b['markets']:
                                 if mk['key'] == 'h2h':
                                     for o in mk['outcomes']:
-                                        if o['name'] == h: q1_b = o['price']
+                                        if o['name'] == h_raw: q1_b = o['price']
                                         elif o['name'] == 'Draw': qX_b = o['price']
-                                        elif o['name'] == a: q2_b = o['price']
+                                        elif o['name'] == a_raw: q2_b = o['price']
                         if q1_b == 0: continue
                         
                         stats = get_full_stats(h_team, a_team, df_teams, df_matches)
@@ -300,6 +351,16 @@ if start_analisys:
             progress.progress(step / total_steps)
             
         status.empty()
+        
+        # --- MOSTRA ERRORI MAPPING (SE ATTIVO) ---
+        if show_mapping_errors and missing_teams_log:
+            st.warning(f"⚠️ TROVATI {len(missing_teams_log)} ERRORI DI MAPPING (Squadre non riconosciute):")
+            # Rimuovi duplicati e mostra
+            unique_missing = list(set(missing_teams_log))
+            for err in unique_missing:
+                st.error(err)
+            st.info("💡 Soluzione: Invia questi nomi allo sviluppatore per aggiornare TEAM_MAPPING.")
+        
         st.success("Scansione Completata.")
         
         main_tab1, main_tab2 = st.tabs(["🏆 ANALISI LEGHE", "📅 CALENDARIO GLOBALE"])
