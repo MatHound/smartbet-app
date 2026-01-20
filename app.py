@@ -5,7 +5,7 @@ import requests
 from scipy.stats import poisson
 
 # Configurazione Pagina
-st.set_page_config(page_title="SmartBet Hybrid", page_icon="⚽", layout="centered")
+st.set_page_config(page_title="SmartBet Matrix", page_icon="⚽", layout="centered")
 
 # CSS Custom
 st.markdown("""
@@ -26,7 +26,7 @@ with st.sidebar:
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
     min_quota_filter = st.slider("Filtro Quota (Vista Smart)", 1.10, 1.50, 1.25, step=0.05)
-    st.info(f"v32.0 - Vista Terminale Inclusa")
+    st.info(f"v33.0 - Terminale Colorato (Verde > 70%)")
 
 st.title("⚽ SmartBet AI Dashboard")
 st.caption(f"Bankroll Attuale: €{bankroll_input:.2f}")
@@ -158,12 +158,16 @@ def get_full_stats(home, away, df_teams, df_matches):
         res[name] = (exp_h, exp_a)
     return res
 
-# FUNZIONE PER GENERARE IL REPORT VECCHIO STILE (RAW)
+# FUNZIONE TERMINALE MODIFICATA (HTML MATRIX STYLE)
 def generate_terminal_report(h_team, a_team, stats, lam_h, lam_a):
-    output = f"ANALISI RAW: {h_team} vs {a_team}\n"
-    output += "="*40 + "\n"
+    # Inizia il blocco HTML
+    # white-space: pre; mantiene l'allineamento come un vero terminale
+    html = f"""
+    <div style='font-family: "Courier New", Courier, monospace; background-color: #1E1E1E; color: #CCCCCC; padding: 15px; border-radius: 5px; line-height: 1.2; white-space: pre; overflow-x: auto;'>
+    <span style='color: #FFD700;'>ANALISI RAW: {h_team} vs {a_team}</span>
+    ========================================
+    """
     
-    # Configurazione Range (uguale al vecchio script)
     configs = [
         ("CORNER", stats['Corn'][0], stats['Corn'][1], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [8.5, 9.5, 10.5]),
         ("TIRI PORTA", stats['Shots'][0], stats['Shots'][1], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [7.5, 8.5, 9.5]),
@@ -172,29 +176,33 @@ def generate_terminal_report(h_team, a_team, stats, lam_h, lam_a):
     ]
     
     for label, exp_h, exp_a, r_h, r_a, r_tot in configs:
-        output += f"\n>>> {label} (Att: {exp_h:.2f} - {exp_a:.2f} | Tot: {exp_h+exp_a:.2f})\n"
-        output += f"{'LINEA':<12} | {'PROB %':<6} | {'QUOTA':<6}\n"
-        output += "-"*35 + "\n"
+        html += f"\n<span style='color: #00FFFF;'>&gt;&gt;&gt; {label} (Att: {exp_h:.2f} - {exp_a:.2f} | Tot: {exp_h+exp_a:.2f})</span>\n"
+        html += f"{'LINEA':<12} | {'PROB %':<6} | {'QUOTA':<6}\n"
+        html += "-"*35 + "\n"
         
-        # Casa
-        for l in r_h:
-            p = poisson.sf(int(l), exp_h)
-            output += f"{'CASA Ov '+str(l):<12} | {p*100:04.1f}% | {1/p if p>0 else 99:.2f}\n"
-        
-        # Ospite
-        for l in r_a:
-            p = poisson.sf(int(l), exp_a)
-            output += f"{'OSP Ov '+str(l):<12} | {p*100:04.1f}% | {1/p if p>0 else 99:.2f}\n"
-            
-        # Totale
-        for l in r_tot:
-            p = poisson.sf(int(l), exp_h+exp_a)
-            output += f"{'TOT Ov '+str(l):<12} | {p*100:04.1f}% | {1/p if p>0 else 99:.2f}\n"
+        # Helper interno per formattare riga
+        def add_rows(prefix, r, exp):
+            rows_html = ""
+            for l in r:
+                p = poisson.sf(int(l), exp)
+                q = 1/p if p > 0 else 99
+                row_str = f"{prefix+' Ov '+str(l):<12} | {p*100:04.1f}% | {q:.2f}"
+                
+                # COLORAZIONE CONDIZIONALE (La magia)
+                if p > 0.70:
+                    rows_html += f"<span style='color: #00FF00; font-weight: bold;'>{row_str}</span>\n"
+                else:
+                    rows_html += f"{row_str}\n"
+            return rows_html
 
-    return output
+        html += add_rows("CASA", r_h, exp_h)
+        html += add_rows("OSP", r_a, exp_a)
+        html += add_rows("TOT", r_tot, exp_h+exp_a)
+
+    html += "</div>"
+    return html
 
 def get_props_list(home_exp, away_exp, label, bankroll, min_quota):
-    # Logica Smart (Filtrata)
     if label == 'CORN':
         ranges_indiv = [2.5, 3.5, 4.5, 5.5, 6.5, 7.5]
         ranges_tot = [7.5, 8.5, 9.5, 10.5, 11.5, 12.5]
@@ -235,7 +243,12 @@ def custom_progress(prob):
     if pct >= 90: color = "#006400"
     elif pct >= 80: color = "#00cc00"
     else: color = "#85e085"
-    return f"""<div style="width:100%; background-color: #e0e0e0; border-radius: 5px; height: 8px; margin-top:5px; margin-bottom:2px;"><div style="width:{pct}%; background-color: {color}; height: 8px; border-radius: 5px;"></div></div>"""
+    
+    return f"""
+    <div style="width:100%; background-color: #e0e0e0; border-radius: 5px; height: 8px; margin-top:5px; margin-bottom:2px;">
+        <div style="width:{pct}%; background-color: {color}; height: 8px; border-radius: 5px;"></div>
+    </div>
+    """
 
 # MAIN LOOP
 if start_analisys:
@@ -297,8 +310,8 @@ if start_analisys:
                             for b in l:
                                 b['match'] = match_name
                         
-                        # Generazione Report Terminale
-                        raw_report = generate_terminal_report(h_team, a_team, stats, lam_h, lam_a)
+                        # GENERAZIONE REPORT HTML
+                        html_report = generate_terminal_report(h_team, a_team, stats, lam_h, lam_a)
 
                         match_data = {
                             'match': match_name,
@@ -311,7 +324,7 @@ if start_analisys:
                             'exp_cards': (stats['Cards'][0], stats['Cards'][1]),
                             'corn_bets': list_corn, 'foul_bets': list_foul, 'gol_bets': list_gol, 
                             'shots_bets': list_shots, 'cards_bets': list_cards,
-                            'raw_text': raw_report
+                            'raw_html': html_report
                         }
                         
                         has_val_1x2 = max(roi_1, roi_X, roi_2) > 0.05
@@ -390,7 +403,7 @@ if start_analisys:
                             show_props("🎯 Tiri Porta", m['shots_bets'], m['exp_shots'])
                             show_props("🟨 Cartellini", m['cards_bets'], m['exp_cards'])
                             
-                            # --- SEZIONE TERMINALE (RAW) ---
+                            # --- SEZIONE TERMINALE (HTML STYLE) ---
                             st.markdown("---")
                             with st.expander("📟 Vista Terminale (Dati Grezzi)"):
-                                st.code(m['raw_text'], language='text')
+                                st.markdown(m['raw_html'], unsafe_allow_html=True)
