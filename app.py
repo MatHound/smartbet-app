@@ -5,18 +5,34 @@ import requests
 from scipy.stats import poisson
 
 # Configurazione Pagina
-st.set_page_config(page_title="SmartBet Matrix", page_icon="⚽", layout="centered")
+st.set_page_config(page_title="SmartBet Terminal", page_icon="📟", layout="centered")
 
-# CSS Custom
+# CSS Custom per lo stile Terminale
 st.markdown("""
 <style>
-    div[data-testid="column"] { background-color: #f9f9f9; border-radius: 5px; padding: 10px; border: 1px solid #ddd; }
-    h4 { margin-top: 0px; margin-bottom: 5px; font-size: 1rem; }
-    .stMetric { text-align: center; }
-    .value-box { background-color: #d4edda; border: 2px solid #28a745; padding: 10px; border-radius: 5px; text-align: center; color: #155724; font-weight: bold; }
-    .neutral-box { background-color: #f8f9fa; border: 1px solid #ddd; padding: 10px; border-radius: 5px; text-align: center; color: #666; }
-    .small-text { font-size: 0.85em; color: #555; }
-    .prob-text { font-size: 0.8em; font-weight: bold; color: #333; margin-top: 2px; }
+    /* Nasconde elementi inutili */
+    .stProgress { display: none; }
+    
+    /* Stile Matrix per i blocchi */
+    .terminal-box {
+        font-family: "Courier New", Courier, monospace;
+        background-color: #0c0c0c;
+        color: #cccccc;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #333;
+        margin-bottom: 20px;
+        white-space: pre; /* Mantiene formattazione spazi */
+        overflow-x: auto;
+        box-shadow: 0px 4px 6px rgba(0,0,0,0.3);
+    }
+    
+    /* Colori del terminale */
+    .term-header { color: #FFD700; font-weight: bold; font-size: 1.1em; } /* Oro */
+    .term-section { color: #00FFFF; font-weight: bold; margin-top: 10px; } /* Ciano */
+    .term-green { color: #00FF00; font-weight: bold; } /* Verde Matrix */
+    .term-val { color: #FF00FF; font-weight: bold; } /* Magenta per Value */
+    .term-label { color: #aaaaaa; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -25,10 +41,9 @@ with st.sidebar:
     st.header("⚙️ Setup")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
-    min_quota_filter = st.slider("Filtro Quota (Vista Smart)", 1.10, 1.50, 1.25, step=0.05)
-    st.info(f"v33.0 - Terminale Colorato (Verde > 70%)")
+    st.info("v34.0 - Full Terminal Mode")
 
-st.title("⚽ SmartBet AI Dashboard")
+st.title("📟 SmartBet AI Terminal")
 st.caption(f"Bankroll Attuale: €{bankroll_input:.2f}")
 
 start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
@@ -141,8 +156,7 @@ def calcola_h2h_favorito(val_h, val_a):
     joint = np.outer(pmf_h, pmf_a)
     p_h = np.sum(np.tril(joint, -1))
     p_a = np.sum(np.triu(joint, 1))
-    if p_h > p_a: return "CASA", p_h
-    else: return "OSP", p_a
+    return p_h, p_a
 
 def get_full_stats(home, away, df_teams, df_matches):
     try:
@@ -158,39 +172,72 @@ def get_full_stats(home, away, df_teams, df_matches):
         res[name] = (exp_h, exp_a)
     return res
 
-# FUNZIONE TERMINALE MODIFICATA (HTML MATRIX STYLE)
-def generate_terminal_report(h_team, a_team, stats, lam_h, lam_a):
-    # Inizia il blocco HTML
-    # white-space: pre; mantiene l'allineamento come un vero terminale
-    html = f"""
-    <div style='font-family: "Courier New", Courier, monospace; background-color: #1E1E1E; color: #CCCCCC; padding: 15px; border-radius: 5px; line-height: 1.2; white-space: pre; overflow-x: auto;'>
-    <span style='color: #FFD700;'>ANALISI RAW: {h_team} vs {a_team}</span>
-    ========================================
-    """
+# --- MOTORE DI GENERAZIONE HTML TERMINALE ---
+def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, roi_1x2):
+    # Inizio Blocco
+    html = f"""<div class='terminal-box'>
+<span class='term-header'>{h_team} vs {a_team}</span>
+{'='*55}
+"""
+    # SEZIONE 1: 1X2 E VALORE
+    html += f"\n<span class='term-section'>[ 1X2 ANALYSIS ]</span>\n"
+    html += f"{'SEGNO':<6} | {'MY QUOTA':<10} | {'BOOKIE':<8} | {'VALUE'}\n"
+    html += "-"*45 + "\n"
     
-    configs = [
+    segni = [('1', roi_1x2['1'], odds_1x2['1']), ('X', roi_1x2['X'], odds_1x2['X']), ('2', roi_1x2['2'], odds_1x2['2'])]
+    
+    for segno, roi, book_q in segni:
+        # Ricavo my quota dal roi: roi = (1/my * book) - 1  => my = book / (roi + 1)
+        my_q = book_q / (roi + 1) if (roi+1) > 0 else 99.0
+        
+        # Colorazione Valore
+        val_str = f"{roi*100:+.0f}%"
+        if roi >= 0.15 and book_q <= 5.0: # Regola Valore Strict
+            val_str = f"<span class='term-val'>{val_str} (TOP)</span>"
+        elif roi > 0:
+            val_str = f"<span class='term-green'>{val_str}</span>"
+        else:
+            val_str = f"{val_str}"
+            
+        html += f"{segno:<6} | {my_q:<10.2f} | {book_q:<8.2f} | {val_str}\n"
+
+    # SEZIONE 2: TESTA A TESTA
+    html += f"\n<span class='term-section'>[ TESTA A TESTA (FAVORITO) ]</span>\n"
+    metrics_cfg = [("Tiri Porta", 'Shots'), ("Corner", 'Corn'), ("Falli", 'Fouls'), ("Cartellini", 'Cards')]
+    for label, key in metrics_cfg:
+        ph, pa = calcola_h2h_favorito(stats[key][0], stats[key][1])
+        if ph > pa:
+            fav_str = f"CASA ({ph*100:.0f}%)"
+            if ph > 0.70: fav_str = f"<span class='term-green'>{fav_str}</span>"
+        else:
+            fav_str = f"OSP ({pa*100:.0f}%)"
+            if pa > 0.70: fav_str = f"<span class='term-green'>{fav_str}</span>"
+            
+        html += f"{label:<12} : {fav_str}\n"
+
+    # SEZIONE 3: PROP BETS (TUTTE)
+    # Configurazione Range Completa
+    prop_configs = [
         ("CORNER", stats['Corn'][0], stats['Corn'][1], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [8.5, 9.5, 10.5]),
         ("TIRI PORTA", stats['Shots'][0], stats['Shots'][1], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [7.5, 8.5, 9.5]),
         ("FALLI", stats['Fouls'][0], stats['Fouls'][1], [10.5, 11.5, 12.5], [10.5, 11.5, 12.5], [21.5, 22.5, 23.5]),
-        ("GOL (Est.)", lam_h, lam_a, [0.5, 1.5], [0.5, 1.5], [1.5, 2.5, 3.5])
+        ("CARTELLINI", stats['Cards'][0], stats['Cards'][1], [1.5, 2.5], [1.5, 2.5], [3.5, 4.5]),
+        ("GOL", lam_h, lam_a, [0.5, 1.5], [0.5, 1.5], [1.5, 2.5, 3.5])
     ]
     
-    for label, exp_h, exp_a, r_h, r_a, r_tot in configs:
-        html += f"\n<span style='color: #00FFFF;'>&gt;&gt;&gt; {label} (Att: {exp_h:.2f} - {exp_a:.2f} | Tot: {exp_h+exp_a:.2f})</span>\n"
-        html += f"{'LINEA':<12} | {'PROB %':<6} | {'QUOTA':<6}\n"
-        html += "-"*35 + "\n"
+    for label, exp_h, exp_a, r_h, r_a, r_tot in prop_configs:
+        html += f"\n<span class='term-section'>[ {label} ]</span> (Att: {exp_h:.2f} - {exp_a:.2f})\n"
+        html += f"{'LINEA':<15} | {'PROB %':<8} | {'QUOTA'}\n"
+        html += "-"*40 + "\n"
         
-        # Helper interno per formattare riga
         def add_rows(prefix, r, exp):
             rows_html = ""
             for l in r:
                 p = poisson.sf(int(l), exp)
                 q = 1/p if p > 0 else 99
-                row_str = f"{prefix+' Ov '+str(l):<12} | {p*100:04.1f}% | {q:.2f}"
-                
-                # COLORAZIONE CONDIZIONALE (La magia)
+                row_str = f"{prefix+' Ov '+str(l):<15} | {p*100:04.1f}%   | {q:.2f}"
                 if p > 0.70:
-                    rows_html += f"<span style='color: #00FF00; font-weight: bold;'>{row_str}</span>\n"
+                    rows_html += f"<span class='term-green'>{row_str}</span>\n"
                 else:
                     rows_html += f"{row_str}\n"
             return rows_html
@@ -202,61 +249,15 @@ def generate_terminal_report(h_team, a_team, stats, lam_h, lam_a):
     html += "</div>"
     return html
 
-def get_props_list(home_exp, away_exp, label, bankroll, min_quota):
-    if label == 'CORN':
-        ranges_indiv = [2.5, 3.5, 4.5, 5.5, 6.5, 7.5]
-        ranges_tot = [7.5, 8.5, 9.5, 10.5, 11.5, 12.5]
-    elif label == 'FALLI':
-        ranges_indiv = [8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5]
-        ranges_tot = [21.5, 22.5, 23.5, 24.5, 25.5, 26.5, 27.5]
-    elif label == 'GOL':
-        ranges_indiv = [0.5, 1.5, 2.5]
-        ranges_tot = [1.5, 2.5, 3.5]
-    elif label == 'SHOTS':
-        ranges_indiv = [2.5, 3.5, 4.5, 5.5, 6.5]
-        ranges_tot = [7.5, 8.5, 9.5, 10.5, 11.5]
-    elif label == 'CARDS':
-        ranges_indiv = [0.5, 1.5, 2.5]
-        ranges_tot = [2.5, 3.5, 4.5, 5.5]
-        
-    tot_exp = home_exp + away_exp
-    valid_opts = []
-    
-    def check(lbl, exp, lines):
-        for l in lines:
-            p = poisson.sf(int(l), exp)
-            if p > 0.70: 
-                q = 1/p if p > 0 else 1.01
-                if q < min_quota: continue
-                stake = round(bankroll * 0.05, 2)
-                if p > 0.80: stake = round(bankroll * 0.10, 2)
-                valid_opts.append({'type': label, 'desc': f"{lbl} Ov {l}", 'prob': p, 'q': q, 'stake': stake})
-            
-    check("CASA", home_exp, ranges_indiv)
-    check("OSP", away_exp, ranges_indiv)
-    check("TOT", tot_exp, ranges_tot)
-    
-    return sorted(valid_opts, key=lambda x: x['q'], reverse=True)[:2]
-
-def custom_progress(prob):
-    pct = int(prob * 100)
-    if pct >= 90: color = "#006400"
-    elif pct >= 80: color = "#00cc00"
-    else: color = "#85e085"
-    
-    return f"""
-    <div style="width:100%; background-color: #e0e0e0; border-radius: 5px; height: 8px; margin-top:5px; margin-bottom:2px;">
-        <div style="width:{pct}%; background-color: {color}; height: 8px; border-radius: 5px;"></div>
-    </div>
-    """
-
 # MAIN LOOP
 if start_analisys:
     if not api_key_input:
         st.error("Inserisci l'API Key nel menu laterale!")
     else:
-        results_by_league = {name: [] for code, name in LEGHE.items()}
-        all_bets = []
+        # Contenitore Top 3 (Opzionale, ma utile per riassunto veloce)
+        all_best_bets = [] 
+        
+        results_container = st.container()
         progress = st.progress(0)
         status = st.empty()
         api_map = {'I1':'soccer_italy_serie_a','E0':'soccer_epl','SP1':'soccer_spain_la_liga','D1':'soccer_germany_bundesliga','F1':'soccer_france_ligue_one'}
@@ -290,120 +291,17 @@ if start_analisys:
                         q1_m, qX_m, q2_m, lam_h, lam_a = calcola_1x2_lambda(stats['Shots'][0], stats['Shots'][1])
                         roi_1 = ((1/q1_m)*q1_b)-1; roi_X = ((1/qX_m)*qX_b)-1; roi_2 = ((1/q2_m)*q2_b)-1
                         
-                        h2h_data = []
-                        metrics_cfg = [("Tiri", 'Shots'), ("Corner", 'Corn'), ("Falli", 'Fouls'), ("Cards", 'Cards')]
-                        for label, key in metrics_cfg:
-                            fav, prob = calcola_h2h_favorito(stats[key][0], stats[key][1])
-                            fav_team = "🏠" if fav == "CASA" else "✈️"
-                            h2h_data.append({'metric': label, 'fav': fav_team, 'prob': prob})
+                        odds_dict = {'1': q1_b, 'X': qX_b, '2': q2_b}
+                        roi_dict = {'1': roi_1, 'X': roi_X, '2': roi_2}
                         
-                        min_q = min_quota_filter
-                        list_corn = get_props_list(stats['Corn'][0], stats['Corn'][1], 'CORN', bankroll_input, min_q)
-                        list_foul = get_props_list(stats['Fouls'][0], stats['Fouls'][1], 'FALLI', bankroll_input, min_q)
-                        list_gol = get_props_list(lam_h, lam_a, 'GOL', bankroll_input, min_q)
-                        list_shots = get_props_list(stats['Shots'][0], stats['Shots'][1], 'SHOTS', bankroll_input, min_q)
-                        list_cards = get_props_list(stats['Cards'][0], stats['Cards'][1], 'CARDS', bankroll_input, min_q)
+                        # Generazione HTML Terminale
+                        html_block = generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_dict, roi_dict)
                         
-                        match_name = f"{h_team} vs {a_team}"
-                        all_lists = [list_corn, list_foul, list_gol, list_shots, list_cards]
-                        for l in all_lists:
-                            for b in l:
-                                b['match'] = match_name
-                        
-                        # GENERAZIONE REPORT HTML
-                        html_report = generate_terminal_report(h_team, a_team, stats, lam_h, lam_a)
-
-                        match_data = {
-                            'match': match_name,
-                            '1x2': {'1': {'q': q1_b, 'roi': roi_1}, 'X': {'q': qX_b, 'roi': roi_X}, '2': {'q': q2_b, 'roi': roi_2}},
-                            'h2h': h2h_data,
-                            'exp_corn': (stats['Corn'][0], stats['Corn'][1]),
-                            'exp_foul': (stats['Fouls'][0], stats['Fouls'][1]),
-                            'exp_gol': (lam_h, lam_a),
-                            'exp_shots': (stats['Shots'][0], stats['Shots'][1]),
-                            'exp_cards': (stats['Cards'][0], stats['Cards'][1]),
-                            'corn_bets': list_corn, 'foul_bets': list_foul, 'gol_bets': list_gol, 
-                            'shots_bets': list_shots, 'cards_bets': list_cards,
-                            'raw_html': html_report
-                        }
-                        
-                        has_val_1x2 = max(roi_1, roi_X, roi_2) > 0.05
-                        has_props = list_corn or list_foul or list_gol or list_shots or list_cards
-                        
-                        if has_val_1x2 or has_props:
-                            results_by_league[name].append(match_data)
-                            all_bets.extend(list_corn + list_foul + list_gol + list_shots + list_cards)
+                        with results_container:
+                            st.markdown(html_block, unsafe_allow_html=True)
                                 
             step += 1
             progress.progress(step / len(LEGHE))
             
         status.empty()
-        
-        if all_bets:
-            st.markdown("### 🔥 Top 3 Value Picks")
-            top_bets = sorted(all_bets, key=lambda x: x['prob'], reverse=True)[:3]
-            cols = st.columns(3)
-            for i, bet in enumerate(top_bets):
-                icon = '🚩' if bet['type']=='CORN' else '🛑' if bet['type']=='FALLI' else '⚽'
-                if bet['type'] == 'SHOTS': icon = '🎯'
-                elif bet['type'] == 'CARDS': icon = '🟨'
-                
-                with cols[i]:
-                    st.info(f"{bet['match']}\n\n**{icon} {bet['desc']}**")
-                    st.metric("Quota", f"{bet['q']:.2f}", f"{bet['prob']*100:.0f}%")
-                    st.write(f"💶 €{bet['stake']}")
-        
-        st.divider()
-        tabs = st.tabs(list(LEGHE.values()))
-        
-        for i, (code, name) in enumerate(LEGHE.items()):
-            with tabs[i]:
-                matches = results_by_league[name]
-                if not matches:
-                    st.write("Nessuna opportunità.")
-                else:
-                    for m in matches:
-                        with st.container(border=True):
-                            st.subheader(m['match'])
-                            
-                            # 1X2 - LOGICA VERDE RISTRETTA
-                            st.markdown("##### ⚖️ Esito Finale")
-                            c1, c2, c3 = st.columns(3)
-                            
-                            def show_box(col, label, data):
-                                is_green = (data['q'] <= 5.0 and data['roi'] >= 0.15)
-                                style = "value-box" if is_green else "neutral-box"
-                                val_txt = f"+{data['roi']*100:.0f}%" if data['roi'] > 0 else "-"
-                                col.markdown(f"<div class='{style}'>{label}<br>{data['q']:.2f}<br><small>{val_txt}</small></div>", unsafe_allow_html=True)
-                                
-                            show_box(c1, "1", m['1x2']['1']); show_box(c2, "X", m['1x2']['X']); show_box(c3, "2", m['1x2']['2'])
-                            
-                            st.divider()
-                            
-                            with st.expander("⚔️ Testa a Testa (Stats)"):
-                                h2h_cols = st.columns(4)
-                                for idx, h in enumerate(m['h2h']):
-                                    with h2h_cols[idx]:
-                                        st.markdown(f"**{h['metric']}**")
-                                        st.write(f"{h['fav']} {h['prob']*100:.0f}%")
-
-                            def show_props(title, bets, exp):
-                                if bets:
-                                    st.markdown(f"#### {title} <span class='small-text'>(Att: {exp[0]:.1f} vs {exp[1]:.1f})</span>", unsafe_allow_html=True)
-                                    cols = st.columns(len(bets))
-                                    for idx, p in enumerate(bets):
-                                        with cols[idx]:
-                                            st.caption(f"{p['desc']} (@{p['q']:.2f})")
-                                            st.markdown(custom_progress(p['prob']), unsafe_allow_html=True)
-                                            st.markdown(f"<div class='prob-text'>Prob: {p['prob']*100:.0f}%</div>", unsafe_allow_html=True)
-
-                            show_props("⚽ Gol", m['gol_bets'], m['exp_gol'])
-                            show_props("🚩 Corner", m['corn_bets'], m['exp_corn'])
-                            show_props("🛑 Falli", m['foul_bets'], m['exp_foul'])
-                            show_props("🎯 Tiri Porta", m['shots_bets'], m['exp_shots'])
-                            show_props("🟨 Cartellini", m['cards_bets'], m['exp_cards'])
-                            
-                            # --- SEZIONE TERMINALE (HTML STYLE) ---
-                            st.markdown("---")
-                            with st.expander("📟 Vista Terminale (Dati Grezzi)"):
-                                st.markdown(m['raw_html'], unsafe_allow_html=True)
+        st.success("Scansione Completata.")
