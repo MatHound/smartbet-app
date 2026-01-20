@@ -6,15 +6,13 @@ from scipy.stats import poisson
 from datetime import datetime, timedelta
 
 # Configurazione Pagina
-st.set_page_config(page_title="SmartBet Terminal v35", page_icon="📟", layout="centered")
+st.set_page_config(page_title="SmartBet Calendar", page_icon="📅", layout="centered")
 
 # CSS Custom (Terminale Matrix)
 st.markdown("""
 <style>
-    /* Nasconde la barra di caricamento standard */
     .stProgress { display: none; }
     
-    /* Stile Matrix per il box interno */
     .terminal-box {
         font-family: "Courier New", Courier, monospace;
         background-color: #0c0c0c;
@@ -22,24 +20,25 @@ st.markdown("""
         padding: 15px;
         border-radius: 5px;
         border: 1px solid #333;
-        white-space: pre; /* Mantiene l'allineamento */
+        white-space: pre; 
         overflow-x: auto;
         font-size: 0.9em;
+        margin-bottom: 10px;
     }
     
-    /* Colori del terminale */
-    .term-header { color: #FFD700; font-weight: bold; } /* Oro */
-    .term-section { color: #00FFFF; font-weight: bold; margin-top: 10px; display: block; } /* Ciano */
-    .term-green { color: #00FF00; font-weight: bold; } /* Verde Matrix (Suggerimenti) */
-    .term-val { color: #FF00FF; font-weight: bold; } /* Magenta (Value 1X2) */
+    .term-header { color: #FFD700; font-weight: bold; } 
+    .term-section { color: #00FFFF; font-weight: bold; margin-top: 10px; display: block; } 
+    .term-green { color: #00FF00; font-weight: bold; } 
+    .term-val { color: #FF00FF; font-weight: bold; }
     
-    /* Modifica stile Expander di Streamlit */
     .streamlit-expanderHeader {
         font-weight: bold;
-        font-size: 1.1em;
         background-color: #f0f2f6;
         border-radius: 5px;
     }
+    
+    /* Stile per il calendario */
+    div[data-testid="stDateInput"] { margin-bottom: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -48,14 +47,14 @@ with st.sidebar:
     st.header("⚙️ Setup")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
-    st.info("v35.0 - Tabs, Date & Expander")
+    st.info("v36.0 - Calendario Globale")
 
 st.title("📟 SmartBet AI Terminal")
 st.caption(f"Bankroll Attuale: €{bankroll_input:.2f}")
 
 start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
 
-# DATI COSTANTI
+# COSTANTI
 STAGIONE = "2526"
 REGION = 'eu'
 MARKET = 'h2h'
@@ -110,16 +109,14 @@ TEAM_MAPPING = {
     'Auxerre': 'Auxerre', 'Angers SCO': 'Angers'
 }
 
-# --- FUNZIONI UTILI ---
-def parse_match_date(iso_date_str):
+# --- FUNZIONI DATETIME ---
+def parse_date(iso_date_str):
     try:
-        # Formato atteso: "2026-01-20T19:45:00Z"
         dt = datetime.strptime(iso_date_str, "%Y-%m-%dT%H:%M:%SZ")
-        # Aggiungiamo 1 ora per l'Italia (semplificazione, gestisce GMT+1)
-        dt_ita = dt + timedelta(hours=1)
-        return dt_ita.strftime("%d/%m %H:%M")
+        dt_ita = dt + timedelta(hours=1) # GMT+1
+        return dt_ita.date(), dt_ita.strftime("%d/%m %H:%M")
     except:
-        return "Oggi"
+        return datetime.now().date(), "Oggi"
 
 @st.cache_data(ttl=3600)
 def scarica_dati(codice_lega):
@@ -190,31 +187,25 @@ def get_full_stats(home, away, df_teams, df_matches):
         res[name] = (exp_h, exp_a)
     return res
 
-# --- MOTORE DI GENERAZIONE HTML TERMINALE ---
+# --- GENERAZIONE HTML TERMINALE ---
 def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, roi_1x2):
-    # Inizio Blocco
     html = f"""<div class='terminal-box'>"""
     
-    # SEZIONE 1: 1X2 E VALORE
+    # 1X2
     html += f"<span class='term-section'>[ 1X2 ANALYSIS ]</span>\n"
     html += f"{'SEGNO':<6} | {'MY QUOTA':<10} | {'BOOKIE':<8} | {'VALUE'}\n"
     html += "-"*45 + "\n"
-    
     segni = [('1', roi_1x2['1'], odds_1x2['1']), ('X', roi_1x2['X'], odds_1x2['X']), ('2', roi_1x2['2'], odds_1x2['2'])]
-    
     for segno, roi, book_q in segni:
         my_q = book_q / (roi + 1) if (roi+1) > 0 else 99.0
         val_str = f"{roi*100:+.0f}%"
-        
-        # Logica Valore Strict: Q < 5 e ROI > 15%
         if roi >= 0.15 and book_q <= 5.0:
             val_str = f"<span class='term-val'>{val_str} (TOP)</span>"
         elif roi > 0:
             val_str = f"<span class='term-green'>{val_str}</span>"
-            
         html += f"{segno:<6} | {my_q:<10.2f} | {book_q:<8.2f} | {val_str}\n"
 
-    # SEZIONE 2: TESTA A TESTA
+    # H2H
     html += f"\n<span class='term-section'>[ TESTA A TESTA (FAVORITO) ]</span>\n"
     metrics_cfg = [("Tiri Porta", 'Shots'), ("Corner", 'Corn'), ("Falli", 'Fouls'), ("Cartellini", 'Cards')]
     for label, key in metrics_cfg:
@@ -225,10 +216,9 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
         else:
             fav_str = f"OSP ({pa*100:.0f}%)"
             if pa > 0.70: fav_str = f"<span class='term-green'>{fav_str}</span>"
-            
         html += f"{label:<12} : {fav_str}\n"
 
-    # SEZIONE 3: PROP BETS (TUTTE)
+    # PROPS
     prop_configs = [
         ("CORNER", stats['Corn'][0], stats['Corn'][1], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [8.5, 9.5, 10.5]),
         ("TIRI PORTA", stats['Shots'][0], stats['Shots'][1], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [7.5, 8.5, 9.5]),
@@ -236,12 +226,10 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
         ("CARTELLINI", stats['Cards'][0], stats['Cards'][1], [1.5, 2.5], [1.5, 2.5], [3.5, 4.5]),
         ("GOL", lam_h, lam_a, [0.5, 1.5], [0.5, 1.5], [1.5, 2.5, 3.5])
     ]
-    
     for label, exp_h, exp_a, r_h, r_a, r_tot in prop_configs:
         html += f"\n<span class='term-section'>[ {label} ]</span> (Att: {exp_h:.2f} - {exp_a:.2f})\n"
         html += f"{'LINEA':<15} | {'PROB %':<8} | {'QUOTA'}\n"
         html += "-"*40 + "\n"
-        
         def add_rows(prefix, r, exp):
             rows_html = ""
             for l in r:
@@ -253,7 +241,6 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
                 else:
                     rows_html += f"{row_str}\n"
             return rows_html
-
         html += add_rows("CASA", r_h, exp_h)
         html += add_rows("OSP", r_a, exp_a)
         html += add_rows("TOT", r_tot, exp_h+exp_a)
@@ -266,8 +253,9 @@ if start_analisys:
     if not api_key_input:
         st.error("Inserisci l'API Key nel menu laterale!")
     else:
-        # STRUTTURA DATI PER TABS
+        # STRUTTURA DATI: Per Lega e Per Calendario
         results_by_league = {name: [] for code, name in LEGHE.items()}
+        global_calendar_data = [] # Lista piatta per il calendario
         
         progress = st.progress(0)
         status = st.empty()
@@ -286,8 +274,8 @@ if start_analisys:
                         h, a = m['home_team'], m['away_team']
                         h_team = TEAM_MAPPING.get(h, h); a_team = TEAM_MAPPING.get(a, a)
                         
-                        # Recupero DATA
-                        match_date = parse_match_date(m.get('commence_time', ''))
+                        # Data Match
+                        raw_date_obj, fmt_date_str = parse_date(m.get('commence_time', ''))
                         
                         q1_b, qX_b, q2_b = 0,0,0
                         for b in m['bookmakers']:
@@ -308,12 +296,18 @@ if start_analisys:
                         odds_dict = {'1': q1_b, 'X': qX_b, '2': q2_b}
                         roi_dict = {'1': roi_1, 'X': roi_X, '2': roi_2}
                         
-                        # Generazione HTML Terminale
                         html_block = generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_dict, roi_dict)
                         
-                        # SALVA NELLA LISTA DELLA LEGA GIUSTA
+                        # DATI PER LEGA
                         results_by_league[name].append({
-                            'label': f"📅 {match_date} | {h_team} vs {a_team}",
+                            'label': f"{fmt_date_str} | {h_team} vs {a_team}",
+                            'html': html_block
+                        })
+                        
+                        # DATI PER CALENDARIO GLOBALE
+                        global_calendar_data.append({
+                            'date': raw_date_obj, # Oggetto DATE per confronto
+                            'label': f"{name} | {h_team} vs {a_team}",
                             'html': html_block
                         })
                                 
@@ -321,18 +315,42 @@ if start_analisys:
             progress.progress(step / len(LEGHE))
             
         status.empty()
-        st.success("Analisi Completata.")
         
-        # --- RENDERIZZAZIONE A SCHEDE (TABS) ---
-        tabs = st.tabs(list(LEGHE.values()))
+        # --- UI TABS ---
+        main_tab1, main_tab2 = st.tabs(["🏆 ANALISI LEGHE", "📅 CALENDARIO GLOBALE"])
         
-        for i, (code, name) in enumerate(LEGHE.items()):
-            with tabs[i]:
-                matches_in_league = results_by_league[name]
-                if not matches_in_league:
-                    st.write("Nessuna partita in programma o dati insufficienti.")
-                else:
-                    for match in matches_in_league:
-                        # EXPANDER PER COMPRIMERE
+        # TAB 1: Classica divisione per lega
+        with main_tab1:
+            league_tabs = st.tabs(list(LEGHE.values()))
+            for i, (code, name) in enumerate(LEGHE.items()):
+                with league_tabs[i]:
+                    matches = results_by_league[name]
+                    if not matches:
+                        st.write("Nessuna partita rilevata.")
+                    else:
+                        for match in matches:
+                            with st.expander(match['label']):
+                                st.markdown(match['html'], unsafe_allow_html=True)
+                                
+        # TAB 2: Calendario Globale
+        with main_tab2:
+            st.markdown("#### Seleziona un giorno per vedere tutte le partite")
+            if global_calendar_data:
+                # Trova le date disponibili per UX
+                available_dates = sorted(list(set([d['date'] for d in global_calendar_data])))
+                min_d = available_dates[0] if available_dates else datetime.now().date()
+                
+                selected_date = st.date_input("Scegli Data:", value=min_d, min_value=min_d)
+                
+                # Filtro
+                filtered_matches = [m for m in global_calendar_data if m['date'] == selected_date]
+                
+                if filtered_matches:
+                    st.success(f"Trovate {len(filtered_matches)} partite per il {selected_date.strftime('%d/%m')}")
+                    for match in filtered_matches:
                         with st.expander(match['label']):
                             st.markdown(match['html'], unsafe_allow_html=True)
+                else:
+                    st.warning(f"Nessuna partita in programma per il {selected_date.strftime('%d/%m')}.")
+            else:
+                st.write("Nessun dato disponibile nel calendario.")
