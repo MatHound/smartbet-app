@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE E COSTANTI
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Global", page_icon="🌍", layout="centered")
+st.set_page_config(page_title="SmartBet Sniper", page_icon="🎯", layout="centered")
 
 # COSTANTI GLOBALI
 STAGIONE = "2526"
@@ -33,7 +33,8 @@ st.markdown("""
     }
     .term-header { color: #FFD700; font-weight: bold; } 
     .term-section { color: #00FFFF; font-weight: bold; margin-top: 10px; display: block; } 
-    .term-green { color: #00FF00; font-weight: bold; } 
+    .term-green { color: #00FF00; font-weight: bold; } /* Verde Matrix */
+    .term-dim { color: #555555; } /* Grigio scuro per roba rischiosa */
     .term-val { color: #FF00FF; font-weight: bold; }
     .streamlit-expanderHeader { font-weight: bold; background-color: #f0f2f6; border-radius: 5px; }
 </style>
@@ -56,7 +57,7 @@ API_MAPPING = {
     'T1': 'soccer_turkey_super_league'
 }
 
-# --- MEGA MAPPING AGGIORNATO (Versione 38.1 con UK FIX) ---
+# --- MEGA MAPPING ---
 TEAM_MAPPING = {
     # ITALIA
     'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Juventus': 'Juve', 'Napoli': 'Napoli', 
@@ -70,7 +71,7 @@ TEAM_MAPPING = {
     'Cosenza': 'Cosenza', 'Sudtirol': 'Sudtirol', 'Cittadella': 'Cittadella', 'Mantova': 'Mantova',
     'Cesena': 'Cesena', 'Juve Stabia': 'Juve Stabia', 'Carrarese': 'Carrarese',
     
-    # INGHILTERRA (Premier + Championship + League One Updates)
+    # INGHILTERRA
     'Manchester United': 'Man United', 'Manchester City': 'Man City', 'Tottenham Hotspur': 'Tottenham',
     'Newcastle United': 'Newcastle', 'Wolverhampton Wanderers': 'Wolves', 'Brighton and Hove Albion': 'Brighton',
     'West Ham United': 'West Ham', 'Leeds United': 'Leeds', 'Nottingham Forest': "Nott'm Forest",
@@ -79,18 +80,10 @@ TEAM_MAPPING = {
     'Middlesbrough': 'Middlesbrough', 'Stoke City': 'Stoke', 'Queens Park Rangers': 'QPR',
     'Preston North End': 'Preston', 'Sheffield Wednesday': 'Sheffield Weds', 'Luton Town': 'Luton',
     'Burnley': 'Burnley', 'Watford': 'Watford', 'Sunderland AFC': 'Sunderland', 'Sunderland': 'Sunderland',
-    
-    # FIX RICHIESTI DALL'UTENTE (E1 - Championship/League One)
-    'Derby County': 'Derby',
-    'Birmingham City': 'Birmingham',
-    'Swansea City': 'Swansea',
-    'Wrexham AFC': 'Wrexham',
-    'Oxford United': 'Oxford',
-    'Charlton Athletic': 'Charlton',
-    'Ipswich Town': 'Ipswich',
-    'Hull City': 'Hull',
-    'Bristol City': 'Bristol City', 'Cardiff City': 'Cardiff', 'Portsmouth': 'Portsmouth', 
-    'Plymouth Argyle': 'Plymouth', 'Millwall': 'Millwall',
+    'Derby County': 'Derby', 'Birmingham City': 'Birmingham', 'Swansea City': 'Swansea',
+    'Wrexham AFC': 'Wrexham', 'Oxford United': 'Oxford', 'Charlton Athletic': 'Charlton',
+    'Ipswich Town': 'Ipswich', 'Hull City': 'Hull', 'Bristol City': 'Bristol City', 
+    'Cardiff City': 'Cardiff', 'Portsmouth': 'Portsmouth', 'Plymouth Argyle': 'Plymouth', 'Millwall': 'Millwall',
     
     # SPAGNA
     'Atletico Madrid': 'Ath Madrid', 'Athletic Bilbao': 'Ath Bilbao', 'Real Betis': 'Betis',
@@ -217,8 +210,10 @@ def get_full_stats(home, away, df_teams, df_matches):
         res[name] = (exp_h, exp_a)
     return res
 
-def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, roi_1x2):
+def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, roi_1x2, min_prob):
     html = f"""<div class='terminal-box'>"""
+    
+    # 1X2 (Solo Informativo, spesso rischioso)
     html += f"<span class='term-section'>[ 1X2 ANALYSIS ]</span>\n"
     html += f"{'SEGNO':<6} | {'MY QUOTA':<10} | {'BOOKIE':<8} | {'VALUE'}\n"
     html += "-"*45 + "\n"
@@ -226,8 +221,16 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
     for segno, roi, book_q in segni:
         my_q = book_q / (roi + 1) if (roi+1) > 0 else 99.0
         val_str = f"{roi*100:+.0f}%"
-        if roi >= 0.15 and book_q <= 5.0: val_str = f"<span class='term-val'>{val_str} (TOP)</span>"
-        elif roi > 0: val_str = f"<span class='term-green'>{val_str}</span>"
+        # Valore Verde SOLO se la probabilità è alta (Q bassa) E c'è valore
+        implied_prob = 1/my_q if my_q > 0 else 0
+        
+        if roi >= 0.15 and book_q <= 4.0 and implied_prob >= min_prob: # FILTRO CECCHINO SU 1X2
+            val_str = f"<span class='term-val'>{val_str} (TOP)</span>"
+        elif roi > 0 and implied_prob >= min_prob:
+            val_str = f"<span class='term-green'>{val_str}</span>"
+        else:
+            val_str = f"<span class='term-dim'>{val_str}</span>"
+            
         html += f"{segno:<6} | {my_q:<10.2f} | {book_q:<8.2f} | {val_str}\n"
 
     html += f"\n<span class='term-section'>[ TESTA A TESTA ]</span>\n"
@@ -235,11 +238,13 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
     for label, key in metrics_cfg:
         ph, pa = calcola_h2h_favorito(stats[key][0], stats[key][1])
         if ph > pa:
-            fav_str = f"CASA ({ph*100:.0f}%)"; 
-            if ph > 0.70: fav_str = f"<span class='term-green'>{fav_str}</span>"
+            fav_str = f"CASA ({ph*100:.0f}%)"
+            if ph >= min_prob: fav_str = f"<span class='term-green'>{fav_str}</span>"
+            else: fav_str = f"<span class='term-dim'>{fav_str}</span>"
         else:
             fav_str = f"OSP ({pa*100:.0f}%)"
-            if pa > 0.70: fav_str = f"<span class='term-green'>{fav_str}</span>"
+            if pa >= min_prob: fav_str = f"<span class='term-green'>{fav_str}</span>"
+            else: fav_str = f"<span class='term-dim'>{fav_str}</span>"
         html += f"{label:<12} : {fav_str}\n"
 
     prop_configs = [
@@ -253,15 +258,22 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
         html += f"\n<span class='term-section'>[ {label} ]</span> (Att: {exp_h:.2f} - {exp_a:.2f})\n"
         html += f"{'LINEA':<15} | {'PROB %':<8} | {'QUOTA'}\n"
         html += "-"*40 + "\n"
+        
         def add_rows(prefix, r, exp):
             rows_html = ""
             for l in r:
                 p = poisson.sf(int(l), exp)
                 q = 1/p if p > 0 else 99
                 row_str = f"{prefix+' Ov '+str(l):<15} | {p*100:04.1f}%   | {q:.2f}"
-                if p > 0.70: rows_html += f"<span class='term-green'>{row_str}</span>\n"
-                else: rows_html += f"{row_str}\n"
+                
+                # FILTRO CECCHINO (VISIBILITA')
+                if p >= min_prob: 
+                    rows_html += f"<span class='term-green'>{row_str}</span>\n"
+                elif p >= min_prob - 0.10: # Mostra ma grigio se vicino
+                    rows_html += f"<span class='term-dim'>{row_str}</span>\n"
+                # Se è troppo basso non lo aggiungo proprio per pulizia (o lo lascio dim)
             return rows_html
+            
         html += add_rows("CASA", r_h, exp_h)
         html += add_rows("OSP", r_a, exp_a)
         html += add_rows("TOT", r_tot, exp_h+exp_a)
@@ -274,12 +286,18 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
 # ==============================================================================
 
 with st.sidebar:
-    st.header("⚙️ Setup")
+    st.header("🎯 Sniper Setup")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
     
     st.divider()
-    st.markdown("### 🏆 Seleziona Campionati")
+    st.markdown("### 🛡️ Livello Sicurezza")
+    # SLIDER PROBABILITA' MINIMA
+    min_prob_val = st.slider("Probabilità Minima (Cecchino)", 0.50, 0.90, 0.65, step=0.05)
+    st.caption(f"Mostro in VERDE solo giocate con prob > {min_prob_val*100:.0f}%")
+    
+    st.divider()
+    st.markdown("### 🏆 Campionati")
     selected_leagues_keys = st.multiselect(
         "Scegli le leghe:",
         options=list(ALL_LEAGUES.keys()),
@@ -287,14 +305,10 @@ with st.sidebar:
         default=['I1', 'E0', 'SP1', 'D1', 'F1']
     )
     
-    st.divider()
-    # IL BOTTONE MAGICO
     show_mapping_errors = st.checkbox("🛠️ Mostra Errori Mapping", value=False)
-    
-    st.info(f"Leghe selezionate: {len(selected_leagues_keys)}")
 
-st.title("📟 SmartBet AI Terminal")
-st.caption(f"Bankroll Attuale: €{bankroll_input:.2f}")
+st.title("🎯 SmartBet Sniper Terminal")
+st.caption(f"Modalità Sicura Attiva (> {min_prob_val*100:.0f}%)")
 
 start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
 
@@ -307,7 +321,7 @@ if start_analisys:
     else:
         results_by_league = {ALL_LEAGUES[k]: [] for k in selected_leagues_keys}
         global_calendar_data = [] 
-        missing_teams_log = [] # Lista per errori
+        missing_teams_log = [] 
         
         progress = st.progress(0)
         status = st.empty()
@@ -323,26 +337,22 @@ if start_analisys:
             
             if df_teams is not None:
                 matches = get_live_matches(api_key_input, API_MAPPING.get(code, ''))
-                
-                # Check se abbiamo le squadre in DF
                 available_teams = set(df_teams['Team'].unique())
                 
                 if matches:
                     for m in matches:
                         if 'home_team' not in m: continue
                         
-                        # LOGICA MAPPING SQUADRE
                         h_raw, a_raw = m['home_team'], m['away_team']
                         h_team = TEAM_MAPPING.get(h_raw, h_raw)
                         a_team = TEAM_MAPPING.get(a_raw, a_raw)
                         
-                        # CHECK DEBUG: Se la squadra non c'è nel CSV, segnalalo
                         if h_team not in available_teams:
-                            missing_teams_log.append(f"LEGA {code}: '{h_raw}' (API) -> Non trovato nel CSV (Mapping mancante?)")
-                            continue # Salta match
+                            missing_teams_log.append(f"LEGA {code}: '{h_raw}' (API) -> Non trovato")
+                            continue 
                         if a_team not in available_teams:
-                            missing_teams_log.append(f"LEGA {code}: '{a_raw}' (API) -> Non trovato nel CSV (Mapping mancante?)")
-                            continue # Salta match
+                            missing_teams_log.append(f"LEGA {code}: '{a_raw}' (API) -> Non trovato")
+                            continue 
                         
                         raw_date_obj, fmt_date_str = parse_date(m.get('commence_time', ''))
                         
@@ -362,7 +372,13 @@ if start_analisys:
                         q1_m, qX_m, q2_m, lam_h, lam_a = calcola_1x2_lambda(stats['Shots'][0], stats['Shots'][1])
                         roi_1 = ((1/q1_m)*q1_b)-1; roi_X = ((1/qX_m)*qX_b)-1; roi_2 = ((1/q2_m)*q2_b)-1
                         
-                        html_block = generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, {'1':q1_b,'X':qX_b,'2':q2_b}, {'1':roi_1,'X':roi_X,'2':roi_2})
+                        # PASSO IL PARAMETRO MIN_PROB PER IL FILTRO GRAFICO
+                        html_block = generate_complete_terminal(
+                            h_team, a_team, stats, lam_h, lam_a, 
+                            {'1':q1_b,'X':qX_b,'2':q2_b}, 
+                            {'1':roi_1,'X':roi_X,'2':roi_2},
+                            min_prob_val
+                        )
                         
                         item = {'label': f"{fmt_date_str} | {h_team} vs {a_team}", 'html': html_block}
                         results_by_league[league_name].append(item)
@@ -373,16 +389,12 @@ if start_analisys:
             
         status.empty()
         
-        # --- MOSTRA ERRORI MAPPING (SE ATTIVO) ---
         if show_mapping_errors and missing_teams_log:
-            st.warning(f"⚠️ TROVATI {len(missing_teams_log)} ERRORI DI MAPPING (Squadre non riconosciute):")
-            # Rimuovi duplicati e mostra
+            st.warning(f"⚠️ TROVATI {len(missing_teams_log)} ERRORI DI MAPPING")
             unique_missing = list(set(missing_teams_log))
-            for err in unique_missing:
-                st.error(err)
-            st.info("💡 Soluzione: Invia questi nomi allo sviluppatore per aggiornare TEAM_MAPPING.")
+            for err in unique_missing: st.error(err)
         
-        st.success("Scansione Completata.")
+        st.success("Analisi Completata.")
         
         main_tab1, main_tab2 = st.tabs(["🏆 ANALISI LEGHE", "📅 CALENDARIO GLOBALE"])
         
