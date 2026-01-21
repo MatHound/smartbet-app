@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE E COSTANTI
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Sniper", page_icon="🎯", layout="centered")
+st.set_page_config(page_title="SmartBet Integrity", page_icon="🛡️", layout="centered")
 
 # COSTANTI GLOBALI
 STAGIONE = "2526"
@@ -33,31 +33,33 @@ st.markdown("""
     }
     .term-header { color: #FFD700; font-weight: bold; } 
     .term-section { color: #00FFFF; font-weight: bold; margin-top: 10px; display: block; } 
-    .term-green { color: #00FF00; font-weight: bold; } /* Verde Matrix */
-    .term-dim { color: #555555; } /* Grigio scuro per roba rischiosa */
+    .term-green { color: #00FF00; font-weight: bold; } 
     .term-val { color: #FF00FF; font-weight: bold; }
+    .term-warn { color: #FF4500; font-weight: bold; background-color: #330000; padding: 2px; } /* Warning Rosso */
+    .term-dim { color: #555555; }
     .streamlit-expanderHeader { font-weight: bold; background-color: #f0f2f6; border-radius: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
-# DATABASE LEGHE
+# DATABASE LEGHE (AGGIUNTA E2 per League One)
 ALL_LEAGUES = {
     'I1': '🇮🇹 ITA - Serie A', 'E0': '🇬🇧 ENG - Premier League', 'SP1': '🇪🇸 ESP - La Liga',
-    'D1': '🇩🇪 GER - Bundesliga', 'F1': '🇫🇷 FRA - Ligue 1', 'I2': '🇮🇹 ITA - Serie B',
-    'E1': '🇬🇧 ENG - Championship', 'N1': '🇳🇱 NED - Eredivisie', 'P1': '🇵🇹 POR - Primeira Liga',
+    'D1': '🇩🇪 GER - Bundesliga', 'F1': '🇫🇷 FRA - Ligue 1', 
+    'I2': '🇮🇹 ITA - Serie B', 'E1': '🇬🇧 ENG - Championship', 'E2': '🇬🇧 ENG - League One', # NUOVA
+    'N1': '🇳🇱 NED - Eredivisie', 'P1': '🇵🇹 POR - Primeira Liga',
     'B1': '🇧🇪 BEL - Pro League', 'T1': '🇹🇷 TUR - Super Lig'
 }
 
 API_MAPPING = {
     'I1': 'soccer_italy_serie_a', 'I2': 'soccer_italy_serie_b',
-    'E0': 'soccer_epl', 'E1': 'soccer_efl_champ',
+    'E0': 'soccer_epl', 'E1': 'soccer_efl_champ', 'E2': 'soccer_england_league1', # NUOVA
     'SP1': 'soccer_spain_la_liga', 'D1': 'soccer_germany_bundesliga',
     'F1': 'soccer_france_ligue_one', 'N1': 'soccer_netherlands_eredivisie',
     'P1': 'soccer_portugal_primeira_liga', 'B1': 'soccer_belgium_pro_league',
     'T1': 'soccer_turkey_super_league'
 }
 
-# --- MEGA MAPPING ---
+# --- MEGA MAPPING 39.1 ---
 TEAM_MAPPING = {
     # ITALIA
     'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Juventus': 'Juve', 'Napoli': 'Napoli', 
@@ -71,7 +73,7 @@ TEAM_MAPPING = {
     'Cosenza': 'Cosenza', 'Sudtirol': 'Sudtirol', 'Cittadella': 'Cittadella', 'Mantova': 'Mantova',
     'Cesena': 'Cesena', 'Juve Stabia': 'Juve Stabia', 'Carrarese': 'Carrarese',
     
-    # INGHILTERRA
+    # UK (Premier, Champ, League One)
     'Manchester United': 'Man United', 'Manchester City': 'Man City', 'Tottenham Hotspur': 'Tottenham',
     'Newcastle United': 'Newcastle', 'Wolverhampton Wanderers': 'Wolves', 'Brighton and Hove Albion': 'Brighton',
     'West Ham United': 'West Ham', 'Leeds United': 'Leeds', 'Nottingham Forest': "Nott'm Forest",
@@ -84,6 +86,7 @@ TEAM_MAPPING = {
     'Wrexham AFC': 'Wrexham', 'Oxford United': 'Oxford', 'Charlton Athletic': 'Charlton',
     'Ipswich Town': 'Ipswich', 'Hull City': 'Hull', 'Bristol City': 'Bristol City', 
     'Cardiff City': 'Cardiff', 'Portsmouth': 'Portsmouth', 'Plymouth Argyle': 'Plymouth', 'Millwall': 'Millwall',
+    'Lincoln City': 'Lincoln', 'Bolton Wanderers': 'Bolton', 'Huddersfield Town': 'Huddersfield',
     
     # SPAGNA
     'Atletico Madrid': 'Ath Madrid', 'Athletic Bilbao': 'Ath Bilbao', 'Real Betis': 'Betis',
@@ -196,10 +199,17 @@ def calcola_h2h_favorito(val_h, val_a):
     return p_h, p_a
 
 def get_full_stats(home, away, df_teams, df_matches):
+    # Recupera le statistiche e la DATA DELL'ULTIMO MATCH
     try:
         s_h = df_teams[df_teams['Team'] == home].iloc[-1]
         s_a = df_teams[df_teams['Team'] == away].iloc[-1]
-    except: return None
+        
+        # Check Data Freshness
+        last_date_h = s_h['Date']
+        last_date_a = s_a['Date']
+        last_date = max(last_date_h, last_date_a)
+    except: return None, None # Squadra non trovata
+
     res = {}
     config = [('Shots','HST','AST'), ('Corn','HC','AC'), ('Fouls','HF','AF'), ('Cards','HY','AY')]
     for name, ch, ca in config:
@@ -208,12 +218,21 @@ def get_full_stats(home, away, df_teams, df_matches):
         att_h = s_h[f'W_{name}For'] / avg_L_h; def_a = s_a[f'W_{name}Ag'] / avg_L_h; exp_h = att_h * def_a * avg_L_h
         att_a = s_a[f'W_{name}For'] / avg_L_a; def_h = s_h[f'W_{name}Ag'] / avg_L_a; exp_a = att_a * def_h * avg_L_a
         res[name] = (exp_h, exp_a)
-    return res
+    
+    return res, last_date
 
-def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, roi_1x2, min_prob):
+def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, roi_1x2, min_prob, last_update_date):
     html = f"""<div class='terminal-box'>"""
     
-    # 1X2 (Solo Informativo, spesso rischioso)
+    # CONTROLLO INTEGRITA' DATI
+    days_lag = (datetime.now() - last_update_date).days
+    
+    if days_lag > 14:
+        html += f"<div class='term-warn'>⚠️ ATTENZIONE: DATI VECCHI DI {days_lag} GIORNI! (STATISTICHE NON AGGIORNATE)</div>\n"
+    elif days_lag > 7:
+        html += f"<div style='color:orange;'>⚠️ Dati aggiornati a {days_lag} giorni fa</div>\n"
+    
+    # 1X2
     html += f"<span class='term-section'>[ 1X2 ANALYSIS ]</span>\n"
     html += f"{'SEGNO':<6} | {'MY QUOTA':<10} | {'BOOKIE':<8} | {'VALUE'}\n"
     html += "-"*45 + "\n"
@@ -221,10 +240,9 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
     for segno, roi, book_q in segni:
         my_q = book_q / (roi + 1) if (roi+1) > 0 else 99.0
         val_str = f"{roi*100:+.0f}%"
-        # Valore Verde SOLO se la probabilità è alta (Q bassa) E c'è valore
-        implied_prob = 1/my_q if my_q > 0 else 0
         
-        if roi >= 0.15 and book_q <= 4.0 and implied_prob >= min_prob: # FILTRO CECCHINO SU 1X2
+        implied_prob = 1/my_q if my_q > 0 else 0
+        if roi >= 0.15 and book_q <= 4.0 and implied_prob >= min_prob: 
             val_str = f"<span class='term-val'>{val_str} (TOP)</span>"
         elif roi > 0 and implied_prob >= min_prob:
             val_str = f"<span class='term-green'>{val_str}</span>"
@@ -266,12 +284,10 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
                 q = 1/p if p > 0 else 99
                 row_str = f"{prefix+' Ov '+str(l):<15} | {p*100:04.1f}%   | {q:.2f}"
                 
-                # FILTRO CECCHINO (VISIBILITA')
                 if p >= min_prob: 
                     rows_html += f"<span class='term-green'>{row_str}</span>\n"
-                elif p >= min_prob - 0.10: # Mostra ma grigio se vicino
+                elif p >= min_prob - 0.10: 
                     rows_html += f"<span class='term-dim'>{row_str}</span>\n"
-                # Se è troppo basso non lo aggiungo proprio per pulizia (o lo lascio dim)
             return rows_html
             
         html += add_rows("CASA", r_h, exp_h)
@@ -286,15 +302,13 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
 # ==============================================================================
 
 with st.sidebar:
-    st.header("🎯 Sniper Setup")
+    st.header("🛡️ Sniper Setup")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
     
     st.divider()
-    st.markdown("### 🛡️ Livello Sicurezza")
-    # SLIDER PROBABILITA' MINIMA
-    min_prob_val = st.slider("Probabilità Minima (Cecchino)", 0.50, 0.90, 0.65, step=0.05)
-    st.caption(f"Mostro in VERDE solo giocate con prob > {min_prob_val*100:.0f}%")
+    st.markdown("### 🛡️ Filtri Sicurezza")
+    min_prob_val = st.slider("Probabilità Minima", 0.50, 0.90, 0.65, step=0.05)
     
     st.divider()
     st.markdown("### 🏆 Campionati")
@@ -307,8 +321,8 @@ with st.sidebar:
     
     show_mapping_errors = st.checkbox("🛠️ Mostra Errori Mapping", value=False)
 
-st.title("🎯 SmartBet Sniper Terminal")
-st.caption(f"Modalità Sicura Attiva (> {min_prob_val*100:.0f}%)")
+st.title("🛡️ SmartBet SafeGuard")
+st.caption(f"Modalità Sicura: Prob > {min_prob_val*100:.0f}% | Integrity Check Attivo")
 
 start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
 
@@ -366,18 +380,20 @@ if start_analisys:
                                         elif o['name'] == a_raw: q2_b = o['price']
                         if q1_b == 0: continue
                         
-                        stats = get_full_stats(h_team, a_team, df_teams, df_matches)
+                        # Recupera stats E DATA
+                        stats, last_date = get_full_stats(h_team, a_team, df_teams, df_matches)
                         if not stats: continue
                         
                         q1_m, qX_m, q2_m, lam_h, lam_a = calcola_1x2_lambda(stats['Shots'][0], stats['Shots'][1])
                         roi_1 = ((1/q1_m)*q1_b)-1; roi_X = ((1/qX_m)*qX_b)-1; roi_2 = ((1/q2_m)*q2_b)-1
                         
-                        # PASSO IL PARAMETRO MIN_PROB PER IL FILTRO GRAFICO
+                        # Passa last_date al generatore
                         html_block = generate_complete_terminal(
                             h_team, a_team, stats, lam_h, lam_a, 
                             {'1':q1_b,'X':qX_b,'2':q2_b}, 
                             {'1':roi_1,'X':roi_X,'2':roi_2},
-                            min_prob_val
+                            min_prob_val,
+                            last_date # <--- PARAMETRO NUOVO
                         )
                         
                         item = {'label': f"{fmt_date_str} | {h_team} vs {a_team}", 'html': html_block}
