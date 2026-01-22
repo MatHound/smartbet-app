@@ -20,7 +20,7 @@ st.markdown("""
 <style>
     .stProgress { display: none; }
     
-    /* Terminale STANDARD (Dati OK) */
+    /* Terminale STANDARD */
     .terminal-box {
         font-family: "Courier New", Courier, monospace;
         background-color: #0c0c0c;
@@ -34,14 +34,14 @@ st.markdown("""
         margin-bottom: 10px;
     }
     
-    /* Terminale MISSING DATA (Grigio/Rosso) */
+    /* Terminale MISSING DATA */
     .terminal-missing {
         font-family: "Courier New", Courier, monospace;
         background-color: #1a1a1a;
         color: #777;
         padding: 15px;
         border-radius: 5px;
-        border: 1px solid #550000; /* Bordo Rosso Scuro */
+        border: 1px solid #550000;
         white-space: pre; 
         overflow-x: auto;
         font-size: 0.9em;
@@ -53,21 +53,19 @@ st.markdown("""
     .term-green { color: #00FF00; font-weight: bold; } 
     .term-val { color: #FF00FF; font-weight: bold; }
     .term-warn { color: #FF4500; font-weight: bold; background-color: #330000; padding: 2px; }
-    .term-error { color: #FF0000; font-weight: bold; }
     
     .streamlit-expanderHeader { font-weight: bold; background-color: #f0f2f6; border-radius: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- DATABASE LEGHE ESTESO (TOTAL COVERAGE) ---
+# --- DATABASE LEGHE ---
 LEAGUE_GROUPS = {
     "🇪🇺 Coppe Europee": ['UCL', 'UEL', 'UECL'],
     "🏆 Top 5 (Tier 1)": ['I1', 'E0', 'SP1', 'D1', 'F1'],
-    "⚽ Europe Tier 2 (Solidi)": ['N1', 'P1', 'B1', 'T1', 'SC0', 'G1', 'A1', 'SW1'],
-    "📉 Leghe Minori (High Value)": ['I2', 'E1', 'E2', 'D2', 'SP2']
+    "⚽ Europe Tier 2": ['N1', 'P1', 'B1', 'T1', 'SC0', 'G1', 'A1', 'SW1'],
+    "📉 Leghe Minori": ['I2', 'E1', 'E2', 'D2', 'SP2']
 }
 
-# Dizionario inverso per lookup facile
 ALL_LEAGUES = {
     'UCL': 'Champions League', 'UEL': 'Europa League', 'UECL': 'Conference League',
     'I1': '🇮🇹 Serie A', 'E0': '🇬🇧 Premier League', 'SP1': '🇪🇸 La Liga', 'D1': '🇩🇪 Bundesliga', 'F1': '🇫🇷 Ligue 1',
@@ -89,7 +87,6 @@ API_MAPPING = {
     'A1': 'soccer_austria_bundesliga', 'SW1': 'soccer_switzerland_superleague'
 }
 
-# Coefficienti Ranking UEFA (Stimati per il bilanciamento)
 LEAGUE_COEFF = {
     'E0': 1.00, 'SP1': 0.96, 'I1': 0.94, 'D1': 0.92, 'F1': 0.88,
     'P1': 0.82, 'N1': 0.80, 'B1': 0.75, 'T1': 0.70, 'E1': 0.70,
@@ -97,7 +94,7 @@ LEAGUE_COEFF = {
     'D2': 0.65, 'I2': 0.60, 'SP2': 0.60, 'E2': 0.55
 }
 
-# MAPPING SQUADRE (Include nuove leghe)
+# MAPPING SQUADRE BASE (Lo aggiorneremo dopo il tuo report)
 TEAM_MAPPING = {
     'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Juventus': 'Juve', 'Napoli': 'Napoli', 'Roma': 'Roma', 'Lazio': 'Lazio', 'Atalanta BC': 'Atalanta',
     'Manchester United': 'Man United', 'Manchester City': 'Man City', 'Tottenham Hotspur': 'Tottenham', 'Newcastle United': 'Newcastle',
@@ -107,14 +104,10 @@ TEAM_MAPPING = {
     'Sporting CP': 'Sp Lisbon', 'Benfica': 'Benfica', 'FC Porto': 'Porto', 'Sporting Braga': 'Braga',
     'PSV Eindhoven': 'PSV Eindhoven', 'Feyenoord Rotterdam': 'Feyenoord', 'Ajax Amsterdam': 'Ajax', 'AZ Alkmaar': 'AZ Alkmaar',
     'Galatasaray': 'Galatasaray', 'Fenerbahce': 'Fenerbahce', 'Besiktas': 'Besiktas', 'Trabzonspor': 'Trabzonspor',
-    # Scozia
     'Celtic': 'Celtic', 'Rangers': 'Rangers', 'Aberdeen': 'Aberdeen', 'Hearts': 'Hearts',
-    # Grecia
     'Olympiacos': 'Olympiakos', 'PAOK Salonika': 'PAOK', 'Panathinaikos': 'Panathinaikos', 'AEK Athens': 'AEK',
-    # Austria/Svizzera
     'Red Bull Salzburg': 'Salzburg', 'Sturm Graz': 'Sturm Graz', 'Rapid Vienna': 'Rapid Vienna',
     'Young Boys': 'Young Boys', 'FC Zurich': 'Zurich', 'Lugano': 'Lugano', 'Servette': 'Servette',
-    # UK Minors
     'Leeds United': 'Leeds', 'Leicester City': 'Leicester', 'Sunderland AFC': 'Sunderland'
 }
 
@@ -146,7 +139,6 @@ def scarica_dati(codice_lega):
         for col in ['HST','AST','HC','AC','HF','AF','HY','AY']:
             if col not in df.columns: df[col] = 0.0
             
-        # CALCOLO FORMA PESATA
         df['W_Goals'] = df.groupby('HomeTeam')['FTHG'].transform(lambda x: x.ewm(span=5).mean())
         df['W_ST'] = df.groupby('HomeTeam')['HST'].transform(lambda x: x.ewm(span=5).mean())
         df['W_C'] = df.groupby('HomeTeam')['HC'].transform(lambda x: x.ewm(span=5).mean())
@@ -187,13 +179,12 @@ def calcola_h2h_favorito(val_h, val_a):
     return p_h, p_a
 
 def find_team_stats_global(team_name, cache_dataframes):
-    # Cerca il team in tutti i CSV caricati
     for league_code, (df_weighted, _) in cache_dataframes.items():
         if df_weighted is None: continue
         team_stats = df_weighted[df_weighted['Team'] == team_name]
         if not team_stats.empty:
             last_row = team_stats.iloc[-1]
-            coeff = LEAGUE_COEFF.get(league_code, 0.65) # Fallback coeff
+            coeff = LEAGUE_COEFF.get(league_code, 0.65)
             return last_row, coeff, league_code
     return None, 0, None
 
@@ -201,13 +192,10 @@ def generate_missing_data_terminal(h_team, a_team, h_found, a_found, bookie_odds
     html = f"""<div class='terminal-missing'>"""
     html += f"<span style='color:#FF5555; font-weight:bold;'>[ ! ] DATI INSUFFICIENTI: {h_team} vs {a_team}</span>\n"
     html += "-"*60 + "\n"
-    
     if not h_found: html += f"❌ Dati Storici mancanti per: {h_team}\n"
     else: html += f"✅ Dati Storici OK per: {h_team}\n"
-    
     if not a_found: html += f"❌ Dati Storici mancanti per: {a_team}\n"
     else: html += f"✅ Dati Storici OK per: {a_team}\n"
-    
     html += "\nINFO BOOKMAKER (Solo per riferimento):\n"
     html += f"1: {bookie_odds['1']:.2f} | X: {bookie_odds['X']:.2f} | 2: {bookie_odds['2']:.2f}\n"
     html += "</div>"
@@ -289,7 +277,6 @@ with st.sidebar:
     st.divider()
     st.markdown("### 🗺️ Selezione Aree")
     
-    # SELEZIONE PER GRUPPI
     selected_groups = []
     for group_name, leagues in LEAGUE_GROUPS.items():
         if st.checkbox(group_name, value=(group_name == "🇪🇺 Coppe Europee")):
@@ -313,13 +300,11 @@ if start_analisys:
         
         # 1. CARICAMENTO DATI DOMESTICI
         domestic_cache = {}
-        # Carichiamo TUTTE le leghe note (eccetto coppe) per avere max copertura
         leagues_to_load = [k for k in ALL_LEAGUES.keys() if k not in ['UCL','UEL','UECL']]
         
         status = st.empty()
         status.text("Caricamento database completi (potrebbe richiedere 30s)...")
         
-        # Barra progresso caricamento dati
         for idx, code in enumerate(leagues_to_load):
             domestic_cache[code] = scarica_dati(code)
             
@@ -332,7 +317,6 @@ if start_analisys:
             league_name = ALL_LEAGUES.get(code, code)
             status.text(f"Analisi: {league_name}...")
             
-            # Init list results
             if league_name not in results_by_league: results_by_league[league_name] = []
             
             matches = get_live_matches(api_key_input, API_MAPPING.get(code, ''))
@@ -351,7 +335,6 @@ if start_analisys:
                     h_stats, h_coeff, h_league = find_team_stats_global(h_team, domestic_cache)
                     a_stats, a_coeff, a_league = find_team_stats_global(a_team, domestic_cache)
                     
-                    # Recupero Quote
                     q1_b, qX_b, q2_b = 0,0,0
                     for b in m['bookmakers']:
                         for mk in b['markets']:
@@ -361,15 +344,12 @@ if start_analisys:
                                     elif o['name'] == 'Draw': qX_b = o['price']
                                     elif o['name'] == a_raw: q2_b = o['price']
                     
-                    # SE MANCANO DATI -> MOSTRA TERMINALE MISSING (Rosso)
+                    # SE MANCANO DATI -> LOGGA E MOSTRA BOX ROSSO
                     if h_stats is None or a_stats is None:
-                        # Logga per debug
                         if h_stats is None: missing_teams_log.append(f"LEGA {code}: '{h_raw}' -> Dati mancanti")
                         if a_stats is None: missing_teams_log.append(f"LEGA {code}: '{a_raw}' -> Dati mancanti")
                         
-                        # Genera blocco errore visibile all'utente
                         html_err = generate_missing_data_terminal(h_team, a_team, (h_stats is not None), (a_stats is not None), {'1':q1_b,'X':qX_b,'2':q2_b})
-                        
                         item = {'label': f"⚠️ {fmt_date_str} | {h_team} vs {a_team}", 'html': html_err}
                         results_by_league[league_name].append(item)
                         global_calendar_data.append({'date': raw_date_obj, 'label': f"[{code}] {h_team} vs {a_team}", 'html': html_err})
@@ -405,14 +385,16 @@ if start_analisys:
             
         status.empty()
         
+        # --- BOX DIAGNOSTICO ---
         if show_mapping_errors and missing_teams_log:
-            st.warning(f"⚠️ Debug: {len(missing_teams_log)} team non trovati.")
+            unique_errors = sorted(list(set(missing_teams_log)))
+            st.warning(f"⚠️ Debug: {len(unique_errors)} squadre non trovate.")
+            st.text_area("📋 Copia questa lista e inviamela in chat:", value="\n".join(unique_errors), height=400)
             
-        st.success("Analisi Completata.")
+        st.success("Analisi Europea Completata.")
         
         main_tab1, main_tab2 = st.tabs(["🏆 COMPETIZIONI", "📅 CALENDARIO"])
         with main_tab1:
-            # Mostra solo tab delle leghe con risultati
             active_leagues = [l for l in results_by_league.keys() if results_by_league[l]]
             if active_leagues:
                 league_tabs = st.tabs(active_leagues)
@@ -422,7 +404,6 @@ if start_analisys:
                             with st.expander(m['label']): st.markdown(m['html'], unsafe_allow_html=True)
             else:
                 st.write("Nessun risultato trovato.")
-                
         with main_tab2:
             st.markdown("#### Seleziona Data")
             if global_calendar_data:
