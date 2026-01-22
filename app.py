@@ -20,7 +20,6 @@ st.markdown("""
 <style>
     .stProgress { display: none; }
     
-    /* Terminale STANDARD */
     .terminal-box {
         font-family: "Courier New", Courier, monospace;
         background-color: #0c0c0c;
@@ -34,7 +33,6 @@ st.markdown("""
         margin-bottom: 10px;
     }
     
-    /* Terminale MISSING DATA */
     .terminal-missing {
         font-family: "Courier New", Courier, monospace;
         background-color: #1a1a1a;
@@ -94,21 +92,75 @@ LEAGUE_COEFF = {
     'D2': 0.65, 'I2': 0.60, 'SP2': 0.60, 'E2': 0.55
 }
 
-# MAPPING SQUADRE BASE (Lo aggiorneremo dopo il tuo report)
+# --- MEGA MAPPING 42.2 (Fix Errori Log) ---
 TEAM_MAPPING = {
-    'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Juventus': 'Juve', 'Napoli': 'Napoli', 'Roma': 'Roma', 'Lazio': 'Lazio', 'Atalanta BC': 'Atalanta',
-    'Manchester United': 'Man United', 'Manchester City': 'Man City', 'Tottenham Hotspur': 'Tottenham', 'Newcastle United': 'Newcastle',
+    # FIX RICHIESTI DAL LOG (UCL/UEL)
+    'AS Monaco': 'Monaco', 'AS Roma': 'Roma', 'Roma': 'Roma',
+    'Atlético Madrid': 'Ath Madrid', 'Atletico Madrid': 'Ath Madrid',
+    'Eintracht Frankfurt': 'Ein Frankfurt', 'VfB Stuttgart': 'Stuttgart',
+    'SC Freiburg': 'Freiburg', 'SC Braga': 'Braga', 'Sporting Lisbon': 'Sp Lisbon', 
+    'Sporting CP': 'Sp Lisbon', 'Juventus': 'Juventus', # A volte csv usa Juve, a volte Juventus
+    'Olympiakos Piraeus': 'Olympiakos', 'Panathinaikos FC': 'Panathinaikos',
+    'Celta Vigo': 'Celta', 'FC Utrecht': 'Utrecht', 
+    'KRC Genk': 'Genk', 'Union Saint-Gilloise': 'St Gilloise',
+    'Nottingham Forest': "Nott'm Forest", 'Rangers FC': 'Rangers',
+    'SK Sturm Graz': 'Sturm Graz', 'Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
+    'Young Boys': 'Young Boys', 'FC Basel': 'Basel', 'FC Zurich': 'Zurich',
+    'Lazio': 'Lazio', 'Besiktas': 'Besiktas', 'Galatasaray': 'Galatasaray', 
+    'Fenerbahce': 'Fenerbahce', 'Trabzonspor': 'Trabzonspor',
+    
+    # MAPPING BASE ITALIA
+    'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Napoli': 'Napoli', 
+    'Atalanta BC': 'Atalanta', 'Hellas Verona': 'Verona', 'Udinese Calcio': 'Udinese', 
+    'Cagliari Calcio': 'Cagliari', 'US Lecce': 'Lecce', 'Empoli FC': 'Empoli', 
+    'Sassuolo Calcio': 'Sassuolo', 'Salernitana': 'Salernitana', 'Monza': 'Monza', 
+    'Frosinone': 'Frosinone', 'Genoa': 'Genoa', 'Parma': 'Parma', 'Como': 'Como', 
+    'Venezia': 'Venezia', 'Pisa': 'Pisa', 'Cremonese': 'Cremonese', 'Palermo': 'Palermo', 
+    'Bari': 'Bari', 'Sampdoria': 'Sampdoria', 'Spezia Calcio': 'Spezia',
+    'Modena FC': 'Modena', 'Catanzaro': 'Catanzaro', 'Reggiana': 'Reggiana', 'Brescia': 'Brescia',
+    'Cosenza': 'Cosenza', 'Sudtirol': 'Sudtirol', 'Cittadella': 'Cittadella', 'Mantova': 'Mantova',
+    'Cesena': 'Cesena', 'Juve Stabia': 'Juve Stabia', 'Carrarese': 'Carrarese',
+
+    # MAPPING BASE ESTERO
+    'Manchester United': 'Man United', 'Manchester City': 'Man City', 'Tottenham Hotspur': 'Tottenham',
+    'Newcastle United': 'Newcastle', 'Wolverhampton Wanderers': 'Wolves', 'Brighton and Hove Albion': 'Brighton',
+    'West Ham United': 'West Ham', 'Leeds United': 'Leeds', 'Leicester City': 'Leicester', 
+    'Norwich City': 'Norwich', 'Sheffield United': 'Sheffield United', 'Blackburn Rovers': 'Blackburn', 
+    'West Bromwich Albion': 'West Brom', 'Coventry City': 'Coventry', 'Middlesbrough': 'Middlesbrough', 
+    'Stoke City': 'Stoke', 'Queens Park Rangers': 'QPR', 'Preston North End': 'Preston', 
+    'Sheffield Wednesday': 'Sheffield Weds', 'Luton Town': 'Luton', 'Burnley': 'Burnley', 
+    'Watford': 'Watford', 'Sunderland AFC': 'Sunderland', 'Sunderland': 'Sunderland',
+    'Derby County': 'Derby', 'Birmingham City': 'Birmingham', 'Swansea City': 'Swansea',
+    'Wrexham AFC': 'Wrexham', 'Oxford United': 'Oxford', 'Charlton Athletic': 'Charlton',
+    'Ipswich Town': 'Ipswich', 'Hull City': 'Hull', 'Bristol City': 'Bristol City', 
+    'Cardiff City': 'Cardiff', 'Portsmouth': 'Portsmouth', 'Plymouth Argyle': 'Plymouth', 'Millwall': 'Millwall',
+    
     'Bayern Munich': 'Bayern Munich', 'Bayer Leverkusen': 'Leverkusen', 'Borussia Dortmund': 'Dortmund',
-    'Paris Saint Germain': 'Paris SG', 'Marseille': 'Marseille', 'Lyon': 'Lyon',
-    'Atletico Madrid': 'Ath Madrid', 'Athletic Bilbao': 'Ath Bilbao', 'Real Betis': 'Betis', 'Real Sociedad': 'Sociedad',
-    'Sporting CP': 'Sp Lisbon', 'Benfica': 'Benfica', 'FC Porto': 'Porto', 'Sporting Braga': 'Braga',
-    'PSV Eindhoven': 'PSV Eindhoven', 'Feyenoord Rotterdam': 'Feyenoord', 'Ajax Amsterdam': 'Ajax', 'AZ Alkmaar': 'AZ Alkmaar',
-    'Galatasaray': 'Galatasaray', 'Fenerbahce': 'Fenerbahce', 'Besiktas': 'Besiktas', 'Trabzonspor': 'Trabzonspor',
-    'Celtic': 'Celtic', 'Rangers': 'Rangers', 'Aberdeen': 'Aberdeen', 'Hearts': 'Hearts',
-    'Olympiacos': 'Olympiakos', 'PAOK Salonika': 'PAOK', 'Panathinaikos': 'Panathinaikos', 'AEK Athens': 'AEK',
-    'Red Bull Salzburg': 'Salzburg', 'Sturm Graz': 'Sturm Graz', 'Rapid Vienna': 'Rapid Vienna',
-    'Young Boys': 'Young Boys', 'FC Zurich': 'Zurich', 'Lugano': 'Lugano', 'Servette': 'Servette',
-    'Leeds United': 'Leeds', 'Leicester City': 'Leicester', 'Sunderland AFC': 'Sunderland'
+    'Borussia Monchengladbach': "M'gladbach", '1. FC Köln': 'FC Koln', 'Mainz 05': 'Mainz', 
+    'VfL Bochum': 'Bochum', 'FC St. Pauli': 'St Pauli', 'Holstein Kiel': 'Holstein Kiel',
+    'TSG Hoffenheim': 'Hoffenheim', 'Werder Bremen': 'Werder Bremen', 'Augsburg': 'Augsburg',
+    
+    'Paris Saint Germain': 'Paris SG', 'Marseille': 'Marseille', 'Lyon': 'Lyon', 
+    'RC Lens': 'Lens', 'AS Monaco': 'Monaco', 'Lille OSC': 'Lille', 'Nice': 'Nice', 'Brest': 'Brest',
+    
+    'Athletic Bilbao': 'Ath Bilbao', 'Real Betis': 'Betis', 'Real Sociedad': 'Sociedad', 
+    'Rayo Vallecano': 'Vallecano', 'Alavés': 'Alaves', 'Cadiz CF': 'Cadiz', 
+    'UD Las Palmas': 'Las Palmas', 'RCD Espanyol': 'Espanyol', 'Real Valladolid': 'Valladolid', 
+    'Leganés': 'Leganes', 'Girona FC': 'Girona',
+    
+    'PSV Eindhoven': 'PSV Eindhoven', 'Feyenoord Rotterdam': 'Feyenoord', 'Ajax Amsterdam': 'Ajax', 
+    'AZ Alkmaar': 'AZ Alkmaar', 'FC Twente': 'Twente', 'Sparta Rotterdam': 'Sparta Rotterdam', 
+    'NEC Nijmegen': 'Nijmegen', 'Go Ahead Eagles': 'Go Ahead Eagles', 'Fortuna Sittard': 'For Sittard', 
+    'PEC Zwolle': 'Zwolle', 'Almere City': 'Almere City', 'RKC Waalwijk': 'Waalwijk', 
+    'SC Heerenveen': 'Heerenveen', 'Heracles Almelo': 'Heracles',
+    
+    'Benfica': 'Benfica', 'FC Porto': 'Porto', 'Vitoria Guimaraes': 'Guimaraes',
+    'Boavista FC': 'Boavista', 'Estoril Praia': 'Estoril', 'Casa Pia AC': 'Casa Pia',
+    'Farense': 'Farense', 'Arouca': 'Arouca', 'Gil Vicente': 'Gil Vicente',
+    
+    'Celtic': 'Celtic', 'Aberdeen': 'Aberdeen', 'Hearts': 'Hearts',
+    'PAOK Salonika': 'PAOK', 'AEK Athens': 'AEK',
+    'Rapid Vienna': 'Rapid Vienna', 'Lugano': 'Lugano', 'Servette': 'Servette'
 }
 
 # ==============================================================================
@@ -344,7 +396,7 @@ if start_analisys:
                                     elif o['name'] == 'Draw': qX_b = o['price']
                                     elif o['name'] == a_raw: q2_b = o['price']
                     
-                    # SE MANCANO DATI -> LOGGA E MOSTRA BOX ROSSO
+                    # SE MANCANO DATI
                     if h_stats is None or a_stats is None:
                         if h_stats is None: missing_teams_log.append(f"LEGA {code}: '{h_raw}' -> Dati mancanti")
                         if a_stats is None: missing_teams_log.append(f"LEGA {code}: '{a_raw}' -> Dati mancanti")
@@ -355,11 +407,11 @@ if start_analisys:
                         global_calendar_data.append({'date': raw_date_obj, 'label': f"[{code}] {h_team} vs {a_team}", 'html': html_err})
                         continue
 
-                    # SE DATI OK -> CALCOLA
+                    # SE DATI OK
                     stats_final = {
                         'Shots': (h_stats['W_ST']*h_coeff, a_stats['W_ST']*a_coeff),
                         'Corn': (h_stats['W_C']*h_coeff, a_stats['W_C']*a_coeff),
-                        'Fouls': (h_stats['W_F'], a_stats['W_F']), # Falli non scalati
+                        'Fouls': (h_stats['W_F'], a_stats['W_F']),
                         'Cards': (h_stats['W_Y'], a_stats['W_Y']),
                     }
                     exp_goals_h = h_stats['W_Goals'] * h_coeff
@@ -385,11 +437,11 @@ if start_analisys:
             
         status.empty()
         
-        # --- BOX DIAGNOSTICO ---
+        # BOX DIAGNOSTICO
         if show_mapping_errors and missing_teams_log:
             unique_errors = sorted(list(set(missing_teams_log)))
             st.warning(f"⚠️ Debug: {len(unique_errors)} squadre non trovate.")
-            st.text_area("📋 Copia questa lista e inviamela in chat:", value="\n".join(unique_errors), height=400)
+            st.text_area("📋 Copia questa lista:", value="\n".join(unique_errors), height=400)
             
         st.success("Analisi Europea Completata.")
         
