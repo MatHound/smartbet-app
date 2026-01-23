@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE E COSTANTI
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Europe Fix", page_icon="🇪🇺", layout="wide")
+st.set_page_config(page_title="SmartBet Real Form", page_icon="📈", layout="wide")
 
 # COSTANTI GLOBALI
 STAGIONE = "2526"
@@ -19,6 +19,7 @@ MARKET = 'h2h'
 st.markdown("""
 <style>
     .stProgress { display: none; }
+    
     .terminal-box { font-family: "Courier New", Courier, monospace; background-color: #0c0c0c; color: #cccccc; padding: 15px; border-radius: 5px; border: 1px solid #333; white-space: pre; overflow-x: auto; font-size: 0.9em; margin-bottom: 10px; }
     .terminal-missing { font-family: "Courier New", Courier, monospace; background-color: #1a1a1a; color: #777; padding: 15px; border-radius: 5px; border: 1px solid #550000; white-space: pre; overflow-x: auto; font-size: 0.9em; margin-bottom: 10px; }
     .term-header { color: #FFD700; font-weight: bold; } 
@@ -66,7 +67,7 @@ LEAGUE_COEFF = {
     'D2': 0.65, 'I2': 0.60, 'SP2': 0.60, 'E2': 0.55
 }
 
-# --- MEGA MAPPING 43.0 ---
+# --- MEGA MAPPING 44.0 ---
 TEAM_MAPPING = {
     'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Napoli': 'Napoli', 'Juventus': 'Juventus',
     'Atalanta BC': 'Atalanta', 'Hellas Verona': 'Verona', 'Udinese Calcio': 'Udinese', 
@@ -157,7 +158,8 @@ TEAM_MAPPING = {
     'Galatasaray': 'Galatasaray', 'Fenerbahce': 'Fenerbahce', 'Trabzonspor': 'Trabzonspor',
     'Celtic': 'Celtic', 'Rangers': 'Rangers', 'Rangers FC': 'Rangers',
     'Aberdeen': 'Aberdeen', 'Hearts': 'Hearts',
-    'KRC Genk': 'Genk', 'Union Saint-Gilloise': 'St Gilloise'
+    'KRC Genk': 'Genk', 'Union Saint-Gilloise': 'St Gilloise',
+    'AS Monaco': 'Monaco', 'AS Roma': 'Roma', 'Roma': 'Roma'
 }
 
 # ==============================================================================
@@ -188,16 +190,27 @@ def scarica_dati(codice_lega):
         for col in ['HST','AST','HC','AC','HF','AF','HY','AY']:
             if col not in df.columns: df[col] = 0.0
             
-        df['W_Goals'] = df.groupby('HomeTeam')['FTHG'].transform(lambda x: x.ewm(span=5).mean())
-        df['W_ST'] = df.groupby('HomeTeam')['HST'].transform(lambda x: x.ewm(span=5).mean())
-        df['W_C'] = df.groupby('HomeTeam')['HC'].transform(lambda x: x.ewm(span=5).mean())
-        df['W_F'] = df.groupby('HomeTeam')['HF'].transform(lambda x: x.ewm(span=5).mean())
-        df['W_Y'] = df.groupby('HomeTeam')['HY'].transform(lambda x: x.ewm(span=5).mean())
+        # --- NEW ENGINE: UNIFIED FORM (HOME + AWAY) ---
+        # Creiamo un dataset "Lung" (Verticale) dove ogni riga è una performance
+        # Rinominiamo le colonne per avere nomi standard: Team, Goals, Shots, Corn, Fouls, Cards
         
-        home_df = df[['Date','HomeTeam','W_Goals','W_ST','W_C','W_F','W_Y']].rename(columns={'HomeTeam':'Team'})
-        away_df = df[['Date','AwayTeam','W_Goals','W_ST','W_C','W_F','W_Y']].rename(columns={'AwayTeam':'Team'})
+        h_stats = df[['Date','HomeTeam','FTHG','HST','HC','HF','HY']].rename(
+            columns={'HomeTeam':'Team', 'FTHG':'Goals', 'HST':'Shots', 'HC':'Corn', 'HF':'Fouls', 'HY':'Cards'}
+        )
+        a_stats = df[['Date','AwayTeam','FTAG','AST','AC','AF','AY']].rename(
+            columns={'AwayTeam':'Team', 'FTAG':'Goals', 'AST':'Shots', 'AC':'Corn', 'AF':'Fouls', 'AY':'Cards'}
+        )
         
-        full_df = pd.concat([home_df, away_df]).sort_values(['Team','Date'])
+        # Uniamo tutto e ordiniamo per data
+        full_df = pd.concat([h_stats, a_stats]).sort_values(['Team','Date'])
+        
+        # Calcoliamo la media pesata (span=5) su TUTTE le partite (Casa + Fuori)
+        # Questo cattura la "Forma Reale"
+        cols = ['Goals','Shots','Corn','Fouls','Cards']
+        for c in cols:
+            full_df[f'W_{c}'] = full_df.groupby('Team')[c].transform(lambda x: x.ewm(span=5).mean())
+            
+        # Per compatibilità, ritorniamo anche df originale
         return full_df, df 
     except: return None, None
 
@@ -206,12 +219,11 @@ def get_live_matches(api_key, sport_key):
     try: return requests.get(url).json()
     except: return []
 
-# --- FIX MATEMATICO v43.1 ---
 def calcola_1x2_lambda(exp_goals_h, exp_goals_a):
-    # I dati in input SONO GIA' GOL ATTESI (Weighted Goals).
-    # NON moltiplicare per 0.30!
+    # I dati in input SONO GIA' GOL ATTESI REALI.
+    # NESSUN MOLTIPLICATORE AGGIUNTIVO!
     
-    # Minimo floor per evitare 0
+    # Minimo floor per evitare 0 assoluti (che rompono Poisson)
     lam_h = exp_goals_h if exp_goals_h > 0.1 else 0.1
     lam_a = exp_goals_a if exp_goals_a > 0.1 else 0.1
     
@@ -220,7 +232,7 @@ def calcola_1x2_lambda(exp_goals_h, exp_goals_a):
         for j in range(6):
             mat[i,j] = poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
             
-    # Dixon-Coles (Aggiusta 0-0, 1-0, 0-1, 1-1)
+    # Dixon-Coles Correction
     rho = 0.13
     mat[0,0] *= (1 - (lam_h * lam_a * rho))
     mat[0,1] *= (1 + (lam_h * rho))
@@ -348,7 +360,7 @@ with st.sidebar:
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
 
 st.title("SmartBet Total Europe")
-st.caption("Cross-League Intelligence Attiva")
+st.caption("Real Form Engine Attivo (H+A Analysis)")
 
 start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
 
@@ -417,12 +429,12 @@ if start_analisys:
                         global_calendar_data.append({'date': raw_date_obj, 'label': f"[{code}] {h_team} vs {a_team}", 'html': html_err})
                         continue
 
-                    # SE DATI OK
+                    # SE DATI OK (Unpack W_ columns directly)
                     stats_final = {
-                        'Shots': (h_stats['W_ST']*h_coeff, a_stats['W_ST']*a_coeff),
-                        'Corn': (h_stats['W_C']*h_coeff, a_stats['W_C']*a_coeff),
-                        'Fouls': (h_stats['W_F'], a_stats['W_F']),
-                        'Cards': (h_stats['W_Y'], a_stats['W_Y']),
+                        'Shots': (h_stats['W_Shots']*h_coeff, a_stats['W_Shots']*a_coeff),
+                        'Corn': (h_stats['W_Corn']*h_coeff, a_stats['W_Corn']*a_coeff),
+                        'Fouls': (h_stats['W_Fouls'], a_stats['W_Fouls']),
+                        'Cards': (h_stats['W_Cards'], a_stats['W_Cards']),
                     }
                     exp_goals_h = h_stats['W_Goals'] * h_coeff
                     exp_goals_a = a_stats['W_Goals'] * a_coeff
@@ -447,7 +459,6 @@ if start_analisys:
             
         status.empty()
         
-        # BOX DIAGNOSTICO
         if show_mapping_errors and missing_teams_log:
             unique_errors = sorted(list(set(missing_teams_log)))
             st.warning(f"⚠️ Debug: {len(unique_errors)} squadre non trovate.")
