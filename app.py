@@ -6,30 +6,58 @@ from scipy.stats import poisson
 from datetime import datetime, timedelta
 
 # ==============================================================================
-# 1. CONFIGURAZIONE
+# 1. CONFIGURAZIONE E COSTANTI
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro Matrix", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="SmartBet Classic", page_icon="📊", layout="wide")
 
+# COSTANTI GLOBALI
 STAGIONE = "2526"
 REGION = 'eu'
 MARKET = 'h2h'
 
+# CSS Custom
 st.markdown("""
 <style>
     .stProgress { display: none; }
-    .terminal-box { font-family: "Courier New", Courier, monospace; background-color: #0c0c0c; color: #cccccc; padding: 15px; border-radius: 5px; border: 1px solid #333; white-space: pre; overflow-x: auto; font-size: 0.9em; margin-bottom: 10px; }
-    .terminal-missing { font-family: "Courier New", Courier, monospace; background-color: #1a1a1a; color: #777; padding: 15px; border-radius: 5px; border: 1px solid #550000; white-space: pre; overflow-x: auto; font-size: 0.9em; margin-bottom: 10px; }
+    
+    .terminal-box {
+        font-family: "Courier New", Courier, monospace;
+        background-color: #0c0c0c;
+        color: #cccccc;
+        padding: 15px;
+        border-radius: 5px;
+        border: 1px solid #333;
+        white-space: pre; 
+        overflow-x: auto;
+        font-size: 0.9em;
+        margin-bottom: 10px;
+    }
+    
+    .terminal-missing {
+        font-family: "Courier New", Courier, monospace;
+        background-color: #1a1a1a;
+        color: #777;
+        padding: 15px;
+        border-radius: 5px;
+        border: 1px solid #550000;
+        white-space: pre; 
+        overflow-x: auto;
+        font-size: 0.9em;
+        margin-bottom: 10px;
+    }
+
     .term-header { color: #FFD700; font-weight: bold; } 
     .term-section { color: #00FFFF; font-weight: bold; margin-top: 10px; display: block; } 
     .term-green { color: #00FF00; font-weight: bold; } 
     .term-val { color: #FF00FF; font-weight: bold; }
     .term-warn { color: #FF4500; font-weight: bold; background-color: #330000; padding: 2px; }
     .term-dim { color: #555555; }
+    
     .streamlit-expanderHeader { font-weight: bold; background-color: #f0f2f6; border-radius: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- DATABASE ---
+# --- DATABASE LEGHE ---
 LEAGUE_GROUPS = {
     "🇪🇺 Coppe Europee": ['UCL', 'UEL', 'UECL'],
     "🏆 Top 5 (Tier 1)": ['I1', 'E0', 'SP1', 'D1', 'F1'],
@@ -65,6 +93,7 @@ LEAGUE_COEFF = {
     'D2': 0.65, 'I2': 0.60, 'SP2': 0.60, 'E2': 0.55
 }
 
+# --- MEGA MAPPING ---
 TEAM_MAPPING = {
     'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Napoli': 'Napoli', 'Juventus': 'Juventus',
     'Atalanta BC': 'Atalanta', 'Hellas Verona': 'Verona', 'Udinese Calcio': 'Udinese', 
@@ -184,11 +213,9 @@ def scarica_dati(codice_lega):
         needed = ['Date','HomeTeam','AwayTeam','FTHG','FTAG']
         if not all(col in df.columns for col in needed): return None, None, None
         
-        # Gestione float
         for col in ['HST','AST','HC','AC','HF','AF','HY','AY']:
             if col not in df.columns: df[col] = 0.0
             
-        # 1. Calcolo Medie Lega Globali (Per normalizzazione di OGNI metrica)
         avgs = {
             'Goals_H': df['FTHG'].mean(), 'Goals_A': df['FTAG'].mean(),
             'Shots_H': df['HST'].mean(), 'Shots_A': df['AST'].mean(),
@@ -197,58 +224,33 @@ def scarica_dati(codice_lega):
             'Cards_H': df['HY'].mean(), 'Cards_A': df['AY'].mean(),
         }
         
-        # 2. RATING SYSTEM PER OGNI METRICA (Attacco & Difesa)
-        # Struttura: Rating = ValoreSquadra / MediaLega
-        
-        # Prepariamo dataset verticale "Home"
         h_df = df[['Date','HomeTeam']].rename(columns={'HomeTeam':'Team'})
         h_df['IsHome'] = 1
-        # Metrics For (Attacco)
         h_df['Goals_For'] = df['FTHG']; h_df['Shots_For'] = df['HST']; h_df['Corn_For'] = df['HC']; h_df['Fouls_For'] = df['HF']; h_df['Cards_For'] = df['HY']
-        # Metrics Against (Difesa - quanto concedo)
         h_df['Goals_Ag'] = df['FTAG']; h_df['Shots_Ag'] = df['AST']; h_df['Corn_Ag'] = df['AC']; h_df['Fouls_Ag'] = df['AF']; h_df['Cards_Ag'] = df['AY']
         
-        # Prepariamo dataset verticale "Away"
         a_df = df[['Date','AwayTeam']].rename(columns={'AwayTeam':'Team'})
         a_df['IsHome'] = 0
-        # Metrics For
         a_df['Goals_For'] = df['FTAG']; a_df['Shots_For'] = df['AST']; a_df['Corn_For'] = df['AC']; a_df['Fouls_For'] = df['AF']; a_df['Cards_For'] = df['AY']
-        # Metrics Against
         a_df['Goals_Ag'] = df['FTHG']; a_df['Shots_Ag'] = df['HST']; a_df['Corn_Ag'] = df['HC']; a_df['Fouls_Ag'] = df['HF']; a_df['Cards_Ag'] = df['HY']
         
         full_df = pd.concat([h_df, a_df]).sort_values(['Team','Date'])
         
-        # 3. CALCOLO RATING PESATI (Weighted Ratings)
-        # Invece di pesare i gol grezzi, pesiamo i "Ratio".
-        # Att_Ratio = Goals_For / Avg_League_Home (se ero in casa)
-        # Def_Ratio = Goals_Ag / Avg_League_Away (se ero in casa)
-        
         metrics = ['Goals', 'Shots', 'Corn', 'Fouls', 'Cards']
-        
         for m in metrics:
-            # Calcolo Ratio Istantaneo per ogni match
             full_df[f'{m}_Att_Rat'] = np.where(full_df['IsHome']==1, full_df[f'{m}_For']/avgs[f'{m}_H'], full_df[f'{m}_For']/avgs[f'{m}_A'])
             full_df[f'{m}_Def_Rat'] = np.where(full_df['IsHome']==1, full_df[f'{m}_Ag']/avgs[f'{m}_A'], full_df[f'{m}_Ag']/avgs[f'{m}_H'])
             
-            # Media Pesata Esponenziale (Forma)
             full_df[f'W_{m}_Att'] = full_df.groupby('Team')[f'{m}_Att_Rat'].transform(lambda x: x.ewm(span=5, min_periods=1).mean())
             full_df[f'W_{m}_Def'] = full_df.groupby('Team')[f'{m}_Def_Rat'].transform(lambda x: x.ewm(span=5, min_periods=1).mean())
 
         return full_df, df, avgs
-        
     except: return None, None, None
 
 def get_live_matches(api_key, sport_key):
     url = f'https://api.the-odds-api.com/v4/sports/{sport_key}/odds/?apiKey={api_key}&regions={REGION}&markets={MARKET}'
     try: return requests.get(url).json()
     except: return []
-
-# --- CALCOLATORE UNIVERSALE (Metric Independent) ---
-def calcola_prop_lambda(h_att, h_def, a_att, a_def, avg_h, avg_a):
-    # Formula Maher: AttaccoCasa * DifesaOspite * MediaLegaCasa
-    exp_h = h_att * a_def * avg_h
-    exp_a = a_att * h_def * avg_a
-    return exp_h, exp_a
 
 def calcola_1x2_dixon_coles(lam_h, lam_a):
     mat = np.zeros((6,6))
@@ -261,6 +263,13 @@ def calcola_1x2_dixon_coles(lam_h, lam_a):
     mat = mat / np.sum(mat)
     p1 = np.sum(np.tril(mat,-1)); pX = np.trace(mat); p2 = np.sum(np.triu(mat,1))
     return (1/p1 if p1>0 else 99), (1/pX if pX>0 else 99), (1/p2 if p2>0 else 99)
+
+def calcola_h2h_favorito(val_h, val_a):
+    r = np.arange(40)
+    pmf_h = poisson.pmf(r, val_h); pmf_a = poisson.pmf(r, val_a)
+    joint = np.outer(pmf_h, pmf_a)
+    p_h = np.sum(np.tril(joint, -1)); p_a = np.sum(np.triu(joint, 1))
+    return p_h, p_a
 
 def find_team_stats_global(team_name, cache_dataframes):
     for league_code, (df_weighted, _, averages) in cache_dataframes.items():
@@ -302,36 +311,52 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
         else: val_str = f"<span class='term-dim'>{val_str}</span>"
         html += f"{segno:<6} | {my_q:<10.2f} | {book_q:<8.2f} | {val_str}\n"
 
-    # STATS RECAP (EXPECTED)
-    html += f"\n<span class='term-section'>[ PREVISIONI STATISTICHE ]</span>\n"
-    html += f"{'METRICA':<12} | {'CASA':<6} | {'OSPITE':<6} | {'TOTALE'}\n"
-    html += "-"*45 + "\n"
-    
-    metrics_to_show = [('GOL', 'Goals'), ('CORNER', 'Corn'), ('TIRI', 'Shots'), ('CARDS', 'Cards')]
-    
-    for label, key in metrics_to_show:
-        eh, ea = exp_data[key]
-        html += f"{label:<12} | {eh:.2f}   | {ea:.2f}   | {eh+ea:.2f}\n"
+    # TESTA A TESTA (REINSERITO)
+    html += f"\n<span class='term-section'>[ TESTA A TESTA ]</span>\n"
+    metrics_cfg = [("GOL", 'Goals'), ("CORNER", 'Corn'), ("TIRI", 'Shots'), ("FALLI", 'Fouls'), ("CARDS", 'Cards')]
+    for label, key in metrics_cfg:
+        ph, pa = calcola_h2h_favorito(exp_data[key][0], exp_data[key][1])
+        if ph > pa:
+            fav_str = f"CASA ({ph*100:.0f}%)"
+            if ph >= min_prob: fav_str = f"<span class='term-green'>{fav_str}</span>"
+            else: fav_str = f"<span class='term-dim'>{fav_str}</span>"
+        else:
+            fav_str = f"OSP ({pa*100:.0f}%)"
+            if pa >= min_prob: fav_str = f"<span class='term-green'>{fav_str}</span>"
+            else: fav_str = f"<span class='term-dim'>{fav_str}</span>"
+        
+        # Aggiunta info valori attesi per riferimento
+        val_h, val_a = exp_data[key]
+        html += f"{label:<10}: {fav_str}  [Exp: {val_h:.1f} vs {val_a:.1f}]\n"
 
-    # PROPS PROBABILITIES
+    # DETTAGLIO PROP
     prop_configs = [
-        ("GOL", exp_data['Goals'], [0.5, 1.5], [0.5, 1.5], [1.5, 2.5, 3.5]),
-        ("CORNER", exp_data['Corn'], [3.5, 4.5], [2.5, 3.5], [8.5, 9.5]),
-        ("CARDS", exp_data['Cards'], [1.5], [1.5], [3.5, 4.5])
+        ("GOL", exp_data['Goals'], [0.5, 1.5, 2.5], [0.5, 1.5], [1.5, 2.5, 3.5]),
+        ("CORNER", exp_data['Corn'], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [8.5, 9.5, 10.5]),
+        ("TIRI PORTA", exp_data['Shots'], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [7.5, 8.5, 9.5]),
+        ("FALLI", exp_data['Fouls'], [10.5, 11.5, 12.5], [10.5, 11.5, 12.5], [21.5, 22.5, 23.5]),
+        ("CARDS", exp_data['Cards'], [1.5, 2.5], [1.5, 2.5], [3.5, 4.5])
     ]
     
     for label, (eh, ea), r_h, r_a, r_tot in prop_configs:
-        html += f"\n<span class='term-section'>[ {label} PROBS ]</span>\n"
+        html += f"\n<span class='term-section'>[ {label} DETTAGLIO ]</span>\n"
         html += f"{'LINEA':<15} | {'PROB %':<8} | {'QUOTA'}\n"
+        html += "-"*40 + "\n"
+        
         def add_rows(prefix, r, exp):
             rows_html = ""
             for l in r:
                 p = poisson.sf(int(l), exp)
                 q = 1/p if p > 0 else 99
                 row_str = f"{prefix+' Ov '+str(l):<15} | {p*100:04.1f}%   | {q:.2f}"
-                if p >= min_prob: rows_html += f"<span class='term-green'>{row_str}</span>\n"
-                elif p >= min_prob - 0.10: rows_html += f"<span class='term-dim'>{row_str}</span>\n"
+                
+                # LOGICA VISIBILITA': Mostra sempre, ma colora solo se Top
+                if p >= min_prob: 
+                    rows_html += f"<span class='term-green'>{row_str}</span>\n"
+                else: 
+                    rows_html += f"<span class='term-dim'>{row_str}</span>\n"
             return rows_html
+            
         html += add_rows("CASA", r_h, eh)
         html += add_rows("OSP", r_a, ea)
         html += add_rows("TOT", r_tot, eh+ea)
@@ -344,11 +369,11 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
 # ==============================================================================
 
 with st.sidebar:
-    st.header("🧮 Math Engine v45.1")
+    st.header("🧮 Classic Matrix v45.2")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
     st.divider()
-    min_prob_val = st.slider("Probabilità Minima", 0.50, 0.90, 0.65, step=0.05)
+    min_prob_val = st.slider("Probabilità Minima (Evidenziatore)", 0.50, 0.90, 0.65, step=0.05)
     st.divider()
     selected_groups = []
     for group_name, leagues in LEAGUE_GROUPS.items():
@@ -356,8 +381,8 @@ with st.sidebar:
             selected_groups.extend(leagues)
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
 
-st.title("SmartBet Math Pro")
-st.caption("Full Matrix Algorithm: Att/Def Ratings on ALL Stats")
+st.title("SmartBet Classic UI")
+st.caption("Motore Matrix: Attacco/Difesa Incrociati su TUTTE le statistiche")
 
 start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
 
@@ -420,35 +445,27 @@ if start_analisys:
                         continue
 
                     # CALCOLO MATRIX SU TUTTE LE STATS
-                    # Per ogni metrica calcoliamo: H_Att * A_Def * Avg_H_League
-                    
-                    exp_data = {} # Dizionario per contenere (exp_h, exp_a) per ogni metrica
+                    exp_data = {} 
                     metrics = ['Goals', 'Shots', 'Corn', 'Fouls', 'Cards']
                     
-                    # Definiamo medie lega da usare (se coppa -> media delle due leghe, se no lega specifica)
-                    # Semplificazione: usiamo le medie della lega di casa per Home e ospite per Away, 
-                    # ma normalizzate dal coefficiente Tier.
-                    
                     for met in metrics:
-                        # Home Expected = H_Att_Rating * A_Def_Rating * H_League_Avg * H_Coeff
-                        # Nota: usiamo H_Avg per Home e A_Avg per Away
-                        
-                        # Recupero dati H
+                        # Recupero dati H (Rating Attacco Casa, Difesa Casa)
                         h_att_r = h_data[f'W_{met}_Att']
                         h_def_r = h_data[f'W_{met}_Def']
-                        h_lea_avg = h_avgs[f'{met}_H'] # Media Gol Casa in Serie A
+                        h_lea_avg_h = h_avgs[f'{met}_H'] # Media lega casa (quando si gioca in casa)
                         
                         # Recupero dati A
                         a_att_r = a_data[f'W_{met}_Att']
                         a_def_r = a_data[f'W_{met}_Def']
-                        a_lea_avg = a_avgs[f'{met}_A'] # Media Gol Ospite in Premier
+                        a_lea_avg_a = a_avgs[f'{met}_A'] # Media lega ospite (quando si gioca fuori)
                         
                         # Calcolo Incrociato
-                        # Exp Home = Quanto Inter Attacca * Quanto Pisa Difende * Media Gol Casa Serie A
-                        val_h = h_att_r * a_def_r * h_lea_avg * h_coeff
+                        # Exp Home = (Attacco Casa Inter) * (Difesa Fuori Pisa) * (Media Gol Casa Serie A)
+                        val_h = h_att_r * a_def_r * h_lea_avg_h * h_coeff
                         
-                        # Exp Away = Quanto Pisa Attacca * Quanto Inter Difende * Media Gol Ospite Premier
-                        val_a = a_att_r * h_def_r * a_lea_avg * a_coeff
+                        # Exp Away = (Attacco Fuori Pisa) * (Difesa Casa Inter) * (Media Gol Fuori Serie A - *Wait, use Host League Avgs for standardization*)
+                        # Nota: Usiamo le medie della lega della squadra ospite per il suo attacco base, ma scalato.
+                        val_a = a_att_r * h_def_r * a_lea_avg_a * a_coeff
                         
                         exp_data[met] = (val_h, val_a)
 
