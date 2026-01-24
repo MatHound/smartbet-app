@@ -6,20 +6,17 @@ from scipy.stats import poisson
 from datetime import datetime, timedelta
 
 # ==============================================================================
-# 1. CONFIGURAZIONE E COSTANTI
+# 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Real Form", page_icon="📈", layout="wide")
+st.set_page_config(page_title="SmartBet Pro Matrix", page_icon="🧠", layout="wide")
 
-# COSTANTI GLOBALI
 STAGIONE = "2526"
 REGION = 'eu'
 MARKET = 'h2h'
 
-# CSS Custom
 st.markdown("""
 <style>
     .stProgress { display: none; }
-    
     .terminal-box { font-family: "Courier New", Courier, monospace; background-color: #0c0c0c; color: #cccccc; padding: 15px; border-radius: 5px; border: 1px solid #333; white-space: pre; overflow-x: auto; font-size: 0.9em; margin-bottom: 10px; }
     .terminal-missing { font-family: "Courier New", Courier, monospace; background-color: #1a1a1a; color: #777; padding: 15px; border-radius: 5px; border: 1px solid #550000; white-space: pre; overflow-x: auto; font-size: 0.9em; margin-bottom: 10px; }
     .term-header { color: #FFD700; font-weight: bold; } 
@@ -27,11 +24,12 @@ st.markdown("""
     .term-green { color: #00FF00; font-weight: bold; } 
     .term-val { color: #FF00FF; font-weight: bold; }
     .term-warn { color: #FF4500; font-weight: bold; background-color: #330000; padding: 2px; }
+    .term-dim { color: #555555; }
     .streamlit-expanderHeader { font-weight: bold; background-color: #f0f2f6; border-radius: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- DATABASE LEGHE ---
+# --- DATABASE ---
 LEAGUE_GROUPS = {
     "🇪🇺 Coppe Europee": ['UCL', 'UEL', 'UECL'],
     "🏆 Top 5 (Tier 1)": ['I1', 'E0', 'SP1', 'D1', 'F1'],
@@ -67,7 +65,6 @@ LEAGUE_COEFF = {
     'D2': 0.65, 'I2': 0.60, 'SP2': 0.60, 'E2': 0.55
 }
 
-# --- MEGA MAPPING 44.0 ---
 TEAM_MAPPING = {
     'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Napoli': 'Napoli', 'Juventus': 'Juventus',
     'Atalanta BC': 'Atalanta', 'Hellas Verona': 'Verona', 'Udinese Calcio': 'Udinese', 
@@ -163,7 +160,7 @@ TEAM_MAPPING = {
 }
 
 # ==============================================================================
-# 2. FUNZIONI CORE
+# 2. FUNZIONI CORE (FULL MATRIX ENGINE)
 # ==============================================================================
 
 def parse_date(iso_date_str):
@@ -176,7 +173,7 @@ def parse_date(iso_date_str):
 
 @st.cache_data(ttl=3600)
 def scarica_dati(codice_lega):
-    if codice_lega in ['UCL', 'UEL', 'UECL']: return None, None
+    if codice_lega in ['UCL', 'UEL', 'UECL']: return None, None, None
     url = f"https://www.football-data.co.uk/mmz4281/{STAGIONE}/{codice_lega}.csv"
     try:
         df = pd.read_csv(url)
@@ -185,104 +182,113 @@ def scarica_dati(codice_lega):
         df['HomeTeam'] = df['HomeTeam'].str.strip(); df['AwayTeam'] = df['AwayTeam'].str.strip()
         
         needed = ['Date','HomeTeam','AwayTeam','FTHG','FTAG']
-        if not all(col in df.columns for col in needed): return None, None
+        if not all(col in df.columns for col in needed): return None, None, None
         
+        # Gestione float
         for col in ['HST','AST','HC','AC','HF','AF','HY','AY']:
             if col not in df.columns: df[col] = 0.0
             
-        # --- NEW ENGINE: UNIFIED FORM (HOME + AWAY) ---
-        # Creiamo un dataset "Lung" (Verticale) dove ogni riga è una performance
-        # Rinominiamo le colonne per avere nomi standard: Team, Goals, Shots, Corn, Fouls, Cards
+        # 1. Calcolo Medie Lega Globali (Per normalizzazione di OGNI metrica)
+        avgs = {
+            'Goals_H': df['FTHG'].mean(), 'Goals_A': df['FTAG'].mean(),
+            'Shots_H': df['HST'].mean(), 'Shots_A': df['AST'].mean(),
+            'Corn_H': df['HC'].mean(), 'Corn_A': df['AC'].mean(),
+            'Fouls_H': df['HF'].mean(), 'Fouls_A': df['AF'].mean(),
+            'Cards_H': df['HY'].mean(), 'Cards_A': df['AY'].mean(),
+        }
         
-        h_stats = df[['Date','HomeTeam','FTHG','HST','HC','HF','HY']].rename(
-            columns={'HomeTeam':'Team', 'FTHG':'Goals', 'HST':'Shots', 'HC':'Corn', 'HF':'Fouls', 'HY':'Cards'}
-        )
-        a_stats = df[['Date','AwayTeam','FTAG','AST','AC','AF','AY']].rename(
-            columns={'AwayTeam':'Team', 'FTAG':'Goals', 'AST':'Shots', 'AC':'Corn', 'AF':'Fouls', 'AY':'Cards'}
-        )
+        # 2. RATING SYSTEM PER OGNI METRICA (Attacco & Difesa)
+        # Struttura: Rating = ValoreSquadra / MediaLega
         
-        # Uniamo tutto e ordiniamo per data
-        full_df = pd.concat([h_stats, a_stats]).sort_values(['Team','Date'])
+        # Prepariamo dataset verticale "Home"
+        h_df = df[['Date','HomeTeam']].rename(columns={'HomeTeam':'Team'})
+        h_df['IsHome'] = 1
+        # Metrics For (Attacco)
+        h_df['Goals_For'] = df['FTHG']; h_df['Shots_For'] = df['HST']; h_df['Corn_For'] = df['HC']; h_df['Fouls_For'] = df['HF']; h_df['Cards_For'] = df['HY']
+        # Metrics Against (Difesa - quanto concedo)
+        h_df['Goals_Ag'] = df['FTAG']; h_df['Shots_Ag'] = df['AST']; h_df['Corn_Ag'] = df['AC']; h_df['Fouls_Ag'] = df['AF']; h_df['Cards_Ag'] = df['AY']
         
-        # Calcoliamo la media pesata (span=5) su TUTTE le partite (Casa + Fuori)
-        # Questo cattura la "Forma Reale"
-        cols = ['Goals','Shots','Corn','Fouls','Cards']
-        for c in cols:
-            full_df[f'W_{c}'] = full_df.groupby('Team')[c].transform(lambda x: x.ewm(span=5).mean())
+        # Prepariamo dataset verticale "Away"
+        a_df = df[['Date','AwayTeam']].rename(columns={'AwayTeam':'Team'})
+        a_df['IsHome'] = 0
+        # Metrics For
+        a_df['Goals_For'] = df['FTAG']; a_df['Shots_For'] = df['AST']; a_df['Corn_For'] = df['AC']; a_df['Fouls_For'] = df['AF']; a_df['Cards_For'] = df['AY']
+        # Metrics Against
+        a_df['Goals_Ag'] = df['FTHG']; a_df['Shots_Ag'] = df['HST']; a_df['Corn_Ag'] = df['HC']; a_df['Fouls_Ag'] = df['HF']; a_df['Cards_Ag'] = df['HY']
+        
+        full_df = pd.concat([h_df, a_df]).sort_values(['Team','Date'])
+        
+        # 3. CALCOLO RATING PESATI (Weighted Ratings)
+        # Invece di pesare i gol grezzi, pesiamo i "Ratio".
+        # Att_Ratio = Goals_For / Avg_League_Home (se ero in casa)
+        # Def_Ratio = Goals_Ag / Avg_League_Away (se ero in casa)
+        
+        metrics = ['Goals', 'Shots', 'Corn', 'Fouls', 'Cards']
+        
+        for m in metrics:
+            # Calcolo Ratio Istantaneo per ogni match
+            full_df[f'{m}_Att_Rat'] = np.where(full_df['IsHome']==1, full_df[f'{m}_For']/avgs[f'{m}_H'], full_df[f'{m}_For']/avgs[f'{m}_A'])
+            full_df[f'{m}_Def_Rat'] = np.where(full_df['IsHome']==1, full_df[f'{m}_Ag']/avgs[f'{m}_A'], full_df[f'{m}_Ag']/avgs[f'{m}_H'])
             
-        # Per compatibilità, ritorniamo anche df originale
-        return full_df, df 
-    except: return None, None
+            # Media Pesata Esponenziale (Forma)
+            full_df[f'W_{m}_Att'] = full_df.groupby('Team')[f'{m}_Att_Rat'].transform(lambda x: x.ewm(span=5, min_periods=1).mean())
+            full_df[f'W_{m}_Def'] = full_df.groupby('Team')[f'{m}_Def_Rat'].transform(lambda x: x.ewm(span=5, min_periods=1).mean())
+
+        return full_df, df, avgs
+        
+    except: return None, None, None
 
 def get_live_matches(api_key, sport_key):
     url = f'https://api.the-odds-api.com/v4/sports/{sport_key}/odds/?apiKey={api_key}&regions={REGION}&markets={MARKET}'
     try: return requests.get(url).json()
     except: return []
 
-def calcola_1x2_lambda(exp_goals_h, exp_goals_a):
-    # I dati in input SONO GIA' GOL ATTESI REALI.
-    # NESSUN MOLTIPLICATORE AGGIUNTIVO!
-    
-    # Minimo floor per evitare 0 assoluti (che rompono Poisson)
-    lam_h = exp_goals_h if exp_goals_h > 0.1 else 0.1
-    lam_a = exp_goals_a if exp_goals_a > 0.1 else 0.1
-    
+# --- CALCOLATORE UNIVERSALE (Metric Independent) ---
+def calcola_prop_lambda(h_att, h_def, a_att, a_def, avg_h, avg_a):
+    # Formula Maher: AttaccoCasa * DifesaOspite * MediaLegaCasa
+    exp_h = h_att * a_def * avg_h
+    exp_a = a_att * h_def * avg_a
+    return exp_h, exp_a
+
+def calcola_1x2_dixon_coles(lam_h, lam_a):
     mat = np.zeros((6,6))
     for i in range(6):
         for j in range(6):
             mat[i,j] = poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
-            
-    # Dixon-Coles Correction
     rho = 0.13
-    mat[0,0] *= (1 - (lam_h * lam_a * rho))
-    mat[0,1] *= (1 + (lam_h * rho))
-    mat[1,0] *= (1 + (lam_a * rho))
-    mat[1,1] *= (1 - rho)
-    
-    # Normalizza perché DC altera la somma totale
+    mat[0,0] *= (1 - (lam_h * lam_a * rho)); mat[0,1] *= (1 + (lam_h * rho))
+    mat[1,0] *= (1 + (lam_a * rho)); mat[1,1] *= (1 - rho)
     mat = mat / np.sum(mat)
-    
     p1 = np.sum(np.tril(mat,-1)); pX = np.trace(mat); p2 = np.sum(np.triu(mat,1))
-    return (1/p1 if p1>0 else 99), (1/pX if pX>0 else 99), (1/p2 if p2>0 else 99), lam_h, lam_a
-
-def calcola_h2h_favorito(val_h, val_a):
-    r = np.arange(40)
-    pmf_h = poisson.pmf(r, val_h); pmf_a = poisson.pmf(r, val_a)
-    joint = np.outer(pmf_h, pmf_a)
-    p_h = np.sum(np.tril(joint, -1)); p_a = np.sum(np.triu(joint, 1))
-    return p_h, p_a
+    return (1/p1 if p1>0 else 99), (1/pX if pX>0 else 99), (1/p2 if p2>0 else 99)
 
 def find_team_stats_global(team_name, cache_dataframes):
-    for league_code, (df_weighted, _) in cache_dataframes.items():
+    for league_code, (df_weighted, _, averages) in cache_dataframes.items():
         if df_weighted is None: continue
         team_stats = df_weighted[df_weighted['Team'] == team_name]
         if not team_stats.empty:
             last_row = team_stats.iloc[-1]
             coeff = LEAGUE_COEFF.get(league_code, 0.65)
-            return last_row, coeff, league_code
+            return last_row, coeff, averages 
     return None, 0, None
 
 def generate_missing_data_terminal(h_team, a_team, h_found, a_found, bookie_odds):
     html = f"""<div class='terminal-missing'>"""
     html += f"<span style='color:#FF5555; font-weight:bold;'>[ ! ] DATI INSUFFICIENTI: {h_team} vs {a_team}</span>\n"
-    html += "-"*60 + "\n"
-    if not h_found: html += f"❌ Dati Storici mancanti per: {h_team}\n"
-    else: html += f"✅ Dati Storici OK per: {h_team}\n"
-    if not a_found: html += f"❌ Dati Storici mancanti per: {a_team}\n"
-    else: html += f"✅ Dati Storici OK per: {a_team}\n"
-    html += "\nINFO BOOKMAKER (Solo per riferimento):\n"
-    html += f"1: {bookie_odds['1']:.2f} | X: {bookie_odds['X']:.2f} | 2: {bookie_odds['2']:.2f}\n"
-    html += "</div>"
+    if not h_found: html += f"❌ Missing: {h_team}\n"
+    if not a_found: html += f"❌ Missing: {a_team}\n"
+    html += f"\nODDS: 1:{bookie_odds['1']:.2f} X:{bookie_odds['X']:.2f} 2:{bookie_odds['2']:.2f}</div>"
     return html
 
-def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, roi_1x2, min_prob, last_date_h, last_date_a):
+def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_prob, last_date_h, last_date_a):
     html = f"""<div class='terminal-box'>"""
     
     max_date = max(last_date_h, last_date_a)
     days_lag = (datetime.now() - max_date).days
-    if days_lag > 14: html += f"<div class='term-warn'>⚠️ DATI DATATI ({days_lag}gg). ATTENZIONE.</div>\n"
+    if days_lag > 14: html += f"<div class='term-warn'>⚠️ DATI VECCHI ({days_lag}gg)</div>\n"
     
-    html += f"<span class='term-section'>[ 1X2 ANALYSIS ]</span>\n"
+    # 1X2
+    html += f"<span class='term-section'>[ 1X2 ]</span>\n"
     html += f"{'SEGNO':<6} | {'MY QUOTA':<10} | {'BOOKIE':<8} | {'VALUE'}\n"
     html += "-"*45 + "\n"
     segni = [('1', roi_1x2['1'], odds_1x2['1']), ('X', roi_1x2['X'], odds_1x2['X']), ('2', roi_1x2['2'], odds_1x2['2'])]
@@ -290,36 +296,33 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
         my_q = book_q / (roi + 1) if (roi+1) > 0 else 99.0
         val_str = f"{roi*100:+.0f}%"
         implied_prob = 1/my_q if my_q > 0 else 0
-        if roi >= 0.15 and book_q <= 4.0 and implied_prob >= min_prob: val_str = f"<span class='term-val'>{val_str} (TOP)</span>"
+        if book_q == 0: val_str="ERR"
+        elif roi >= 0.15 and book_q <= 4.0 and implied_prob >= min_prob: val_str = f"<span class='term-val'>{val_str} (TOP)</span>"
         elif roi > 0 and implied_prob >= min_prob: val_str = f"<span class='term-green'>{val_str}</span>"
         else: val_str = f"<span class='term-dim'>{val_str}</span>"
         html += f"{segno:<6} | {my_q:<10.2f} | {book_q:<8.2f} | {val_str}\n"
 
-    html += f"\n<span class='term-section'>[ TESTA A TESTA ]</span>\n"
-    metrics_cfg = [("Tiri Porta", 'Shots'), ("Corner", 'Corn'), ("Falli", 'Fouls'), ("Cartellini", 'Cards')]
-    for label, key in metrics_cfg:
-        ph, pa = calcola_h2h_favorito(stats[key][0], stats[key][1])
-        if ph > pa:
-            fav_str = f"CASA ({ph*100:.0f}%)"
-            if ph >= min_prob: fav_str = f"<span class='term-green'>{fav_str}</span>"
-            else: fav_str = f"<span class='term-dim'>{fav_str}</span>"
-        else:
-            fav_str = f"OSP ({pa*100:.0f}%)"
-            if pa >= min_prob: fav_str = f"<span class='term-green'>{fav_str}</span>"
-            else: fav_str = f"<span class='term-dim'>{fav_str}</span>"
-        html += f"{label:<12} : {fav_str}\n"
+    # STATS RECAP (EXPECTED)
+    html += f"\n<span class='term-section'>[ PREVISIONI STATISTICHE ]</span>\n"
+    html += f"{'METRICA':<12} | {'CASA':<6} | {'OSPITE':<6} | {'TOTALE'}\n"
+    html += "-"*45 + "\n"
+    
+    metrics_to_show = [('GOL', 'Goals'), ('CORNER', 'Corn'), ('TIRI', 'Shots'), ('CARDS', 'Cards')]
+    
+    for label, key in metrics_to_show:
+        eh, ea = exp_data[key]
+        html += f"{label:<12} | {eh:.2f}   | {ea:.2f}   | {eh+ea:.2f}\n"
 
+    # PROPS PROBABILITIES
     prop_configs = [
-        ("CORNER", stats['Corn'][0], stats['Corn'][1], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [8.5, 9.5, 10.5]),
-        ("TIRI PORTA", stats['Shots'][0], stats['Shots'][1], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [7.5, 8.5, 9.5]),
-        ("FALLI", stats['Fouls'][0], stats['Fouls'][1], [10.5, 11.5, 12.5], [10.5, 11.5, 12.5], [21.5, 22.5, 23.5]),
-        ("CARTELLINI", stats['Cards'][0], stats['Cards'][1], [1.5, 2.5], [1.5, 2.5], [3.5, 4.5]),
-        ("GOL", lam_h, lam_a, [0.5, 1.5], [0.5, 1.5], [1.5, 2.5, 3.5])
+        ("GOL", exp_data['Goals'], [0.5, 1.5], [0.5, 1.5], [1.5, 2.5, 3.5]),
+        ("CORNER", exp_data['Corn'], [3.5, 4.5], [2.5, 3.5], [8.5, 9.5]),
+        ("CARDS", exp_data['Cards'], [1.5], [1.5], [3.5, 4.5])
     ]
-    for label, exp_h, exp_a, r_h, r_a, r_tot in prop_configs:
-        html += f"\n<span class='term-section'>[ {label} ]</span> (Att: {exp_h:.2f} - {exp_a:.2f})\n"
+    
+    for label, (eh, ea), r_h, r_a, r_tot in prop_configs:
+        html += f"\n<span class='term-section'>[ {label} PROBS ]</span>\n"
         html += f"{'LINEA':<15} | {'PROB %':<8} | {'QUOTA'}\n"
-        html += "-"*40 + "\n"
         def add_rows(prefix, r, exp):
             rows_html = ""
             for l in r:
@@ -329,9 +332,9 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
                 if p >= min_prob: rows_html += f"<span class='term-green'>{row_str}</span>\n"
                 elif p >= min_prob - 0.10: rows_html += f"<span class='term-dim'>{row_str}</span>\n"
             return rows_html
-        html += add_rows("CASA", r_h, exp_h)
-        html += add_rows("OSP", r_a, exp_a)
-        html += add_rows("TOT", r_tot, exp_h+exp_a)
+        html += add_rows("CASA", r_h, eh)
+        html += add_rows("OSP", r_a, ea)
+        html += add_rows("TOT", r_tot, eh+ea)
 
     html += "</div>"
     return html
@@ -341,56 +344,47 @@ def generate_complete_terminal(h_team, a_team, stats, lam_h, lam_a, odds_1x2, ro
 # ==============================================================================
 
 with st.sidebar:
-    st.header("🇪🇺 Europe Night")
+    st.header("🧮 Math Engine v45.1")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
-    
     st.divider()
     min_prob_val = st.slider("Probabilità Minima", 0.50, 0.90, 0.65, step=0.05)
-    
     st.divider()
-    st.markdown("### 🗺️ Selezione Aree")
-    
     selected_groups = []
     for group_name, leagues in LEAGUE_GROUPS.items():
         if st.checkbox(group_name, value=(group_name == "🇪🇺 Coppe Europee")):
             selected_groups.extend(leagues)
-            
-    st.caption(f"Leghe attive: {len(selected_groups)}")
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
 
-st.title("SmartBet Total Europe")
-st.caption("Real Form Engine Attivo (H+A Analysis)")
+st.title("SmartBet Math Pro")
+st.caption("Full Matrix Algorithm: Att/Def Ratings on ALL Stats")
 
 start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
 
 if start_analisys:
     if not api_key_input: st.error("Inserisci API Key!")
-    elif not selected_groups: st.error("Seleziona almeno un gruppo di leghe!")
+    elif not selected_groups: st.error("Seleziona competizioni!")
     else:
         results_by_league = {}
         global_calendar_data = [] 
         missing_teams_log = [] 
         
-        # 1. CARICAMENTO DATI DOMESTICI
+        # 1. LOAD DATA
         domestic_cache = {}
         leagues_to_load = [k for k in ALL_LEAGUES.keys() if k not in ['UCL','UEL','UECL']]
-        
         status = st.empty()
-        status.text("Caricamento database completi (potrebbe richiedere 30s)...")
-        
+        status.text("Caricamento database statistici (Matrix)...")
         for idx, code in enumerate(leagues_to_load):
             domestic_cache[code] = scarica_dati(code)
             
-        # 2. SCANSIONE MATCH
+        # 2. SCAN
         progress = st.progress(0)
-        step = 0
         total_steps = len(selected_groups)
         
-        for code in selected_groups:
+        for idx, code in enumerate(selected_groups):
+            progress.progress((idx+1)/total_steps)
             league_name = ALL_LEAGUES.get(code, code)
             status.text(f"Analisi: {league_name}...")
-            
             if league_name not in results_by_league: results_by_league[league_name] = []
             
             matches = get_live_matches(api_key_input, API_MAPPING.get(code, ''))
@@ -398,16 +392,14 @@ if start_analisys:
             if matches:
                 for m in matches:
                     if 'home_team' not in m: continue
-                    
                     h_raw, a_raw = m['home_team'], m['away_team']
                     h_team = TEAM_MAPPING.get(h_raw, h_raw)
                     a_team = TEAM_MAPPING.get(a_raw, a_raw)
-                    
                     raw_date_obj, fmt_date_str = parse_date(m.get('commence_time', ''))
                     
                     # LOGICA CROSS-SEARCH
-                    h_stats, h_coeff, h_league = find_team_stats_global(h_team, domestic_cache)
-                    a_stats, a_coeff, a_league = find_team_stats_global(a_team, domestic_cache)
+                    h_data, h_coeff, h_avgs = find_team_stats_global(h_team, domestic_cache)
+                    a_data, a_coeff, a_avgs = find_team_stats_global(a_team, domestic_cache)
                     
                     q1_b, qX_b, q2_b = 0,0,0
                     for b in m['bookmakers']:
@@ -418,74 +410,89 @@ if start_analisys:
                                     elif o['name'] == 'Draw': qX_b = o['price']
                                     elif o['name'] == a_raw: q2_b = o['price']
                     
-                    # SE MANCANO DATI
-                    if h_stats is None or a_stats is None:
-                        if h_stats is None: missing_teams_log.append(f"LEGA {code}: '{h_raw}' -> Dati mancanti")
-                        if a_stats is None: missing_teams_log.append(f"LEGA {code}: '{a_raw}' -> Dati mancanti")
-                        
-                        html_err = generate_missing_data_terminal(h_team, a_team, (h_stats is not None), (a_stats is not None), {'1':q1_b,'X':qX_b,'2':q2_b})
+                    if h_data is None or a_data is None:
+                        if h_data is None: missing_teams_log.append(f"LEGA {code}: '{h_raw}' -> Missing")
+                        if a_data is None: missing_teams_log.append(f"LEGA {code}: '{a_raw}' -> Missing")
+                        html_err = generate_missing_data_terminal(h_team, a_team, (h_data is not None), (a_data is not None), {'1':q1_b,'X':qX_b,'2':q2_b})
                         item = {'label': f"⚠️ {fmt_date_str} | {h_team} vs {a_team}", 'html': html_err}
                         results_by_league[league_name].append(item)
                         global_calendar_data.append({'date': raw_date_obj, 'label': f"[{code}] {h_team} vs {a_team}", 'html': html_err})
                         continue
 
-                    # SE DATI OK (Unpack W_ columns directly)
-                    stats_final = {
-                        'Shots': (h_stats['W_Shots']*h_coeff, a_stats['W_Shots']*a_coeff),
-                        'Corn': (h_stats['W_Corn']*h_coeff, a_stats['W_Corn']*a_coeff),
-                        'Fouls': (h_stats['W_Fouls'], a_stats['W_Fouls']),
-                        'Cards': (h_stats['W_Cards'], a_stats['W_Cards']),
-                    }
-                    exp_goals_h = h_stats['W_Goals'] * h_coeff
-                    exp_goals_a = a_stats['W_Goals'] * a_coeff
+                    # CALCOLO MATRIX SU TUTTE LE STATS
+                    # Per ogni metrica calcoliamo: H_Att * A_Def * Avg_H_League
                     
+                    exp_data = {} # Dizionario per contenere (exp_h, exp_a) per ogni metrica
+                    metrics = ['Goals', 'Shots', 'Corn', 'Fouls', 'Cards']
+                    
+                    # Definiamo medie lega da usare (se coppa -> media delle due leghe, se no lega specifica)
+                    # Semplificazione: usiamo le medie della lega di casa per Home e ospite per Away, 
+                    # ma normalizzate dal coefficiente Tier.
+                    
+                    for met in metrics:
+                        # Home Expected = H_Att_Rating * A_Def_Rating * H_League_Avg * H_Coeff
+                        # Nota: usiamo H_Avg per Home e A_Avg per Away
+                        
+                        # Recupero dati H
+                        h_att_r = h_data[f'W_{met}_Att']
+                        h_def_r = h_data[f'W_{met}_Def']
+                        h_lea_avg = h_avgs[f'{met}_H'] # Media Gol Casa in Serie A
+                        
+                        # Recupero dati A
+                        a_att_r = a_data[f'W_{met}_Att']
+                        a_def_r = a_data[f'W_{met}_Def']
+                        a_lea_avg = a_avgs[f'{met}_A'] # Media Gol Ospite in Premier
+                        
+                        # Calcolo Incrociato
+                        # Exp Home = Quanto Inter Attacca * Quanto Pisa Difende * Media Gol Casa Serie A
+                        val_h = h_att_r * a_def_r * h_lea_avg * h_coeff
+                        
+                        # Exp Away = Quanto Pisa Attacca * Quanto Inter Difende * Media Gol Ospite Premier
+                        val_a = a_att_r * h_def_r * a_lea_avg * a_coeff
+                        
+                        exp_data[met] = (val_h, val_a)
+
+                    # ODDS 1X2
                     if q1_b == 0: continue
-                    
-                    q1_m, qX_m, q2_m, lam_h, lam_a = calcola_1x2_lambda(exp_goals_h, exp_goals_a)
-                    roi_1 = ((1/q1_m)*q1_b)-1; roi_X = ((1/qX_m)*qX_b)-1; roi_2 = ((1/q2_m)*q2_b)-1
+                    my_q1, my_qX, my_q2 = calcola_1x2_dixon_coles(exp_data['Goals'][0], exp_data['Goals'][1])
+                    roi_1 = ((1/my_q1)*q1_b)-1; roi_X = ((1/my_qX)*qX_b)-1; roi_2 = ((1/my_q2)*q2_b)-1
                     
                     html_block = generate_complete_terminal(
-                        h_team, a_team, stats_final, lam_h, lam_a, 
+                        h_team, a_team, exp_data, 
                         {'1':q1_b,'X':qX_b,'2':q2_b}, {'1':roi_1,'X':roi_X,'2':roi_2},
-                        min_prob_val, h_stats['Date'], a_stats['Date']
+                        min_prob_val, h_data['Date'], a_data['Date']
                     )
                     
                     item = {'label': f"✅ {fmt_date_str} | {h_team} vs {a_team}", 'html': html_block}
                     results_by_league[league_name].append(item)
                     global_calendar_data.append({'date': raw_date_obj, 'label': f"[{code}] {h_team} vs {a_team}", 'html': html_block})
 
-            step += 1
-            progress.progress(step / total_steps)
-            
         status.empty()
-        
         if show_mapping_errors and missing_teams_log:
-            unique_errors = sorted(list(set(missing_teams_log)))
-            st.warning(f"⚠️ Debug: {len(unique_errors)} squadre non trovate.")
-            st.text_area("📋 Copia questa lista:", value="\n".join(unique_errors), height=400)
+            st.warning(f"Errors: {len(missing_teams_log)}")
+            st.text_area("Log:", value="\n".join(sorted(list(set(missing_teams_log)))))
             
-        st.success("Analisi Europea Completata.")
+        st.success("Analisi Completata.")
         
         main_tab1, main_tab2 = st.tabs(["🏆 COMPETIZIONI", "📅 CALENDARIO"])
         with main_tab1:
-            active_leagues = [l for l in results_by_league.keys() if results_by_league[l]]
-            if active_leagues:
-                league_tabs = st.tabs(active_leagues)
-                for i, lname in enumerate(active_leagues):
-                    with league_tabs[i]:
-                        for m in results_by_league[lname]:
+            active = [l for l in results_by_league if results_by_league[l]]
+            if active:
+                tabs = st.tabs(active)
+                for i, l in enumerate(active):
+                    with tabs[i]:
+                        for m in results_by_league[l]:
                             with st.expander(m['label']): st.markdown(m['html'], unsafe_allow_html=True)
-            else:
-                st.write("Nessun risultato trovato.")
+            else: st.write("Nessun risultato.")
         with main_tab2:
-            st.markdown("#### Seleziona Data")
+            st.markdown("#### Seleziona Giorno")
             if global_calendar_data:
-                dates = sorted(list(set([d['date'] for d in global_calendar_data])))
-                if dates:
-                    sel_d = st.date_input("Giorno:", value=dates[0], min_value=dates[0])
-                    filtered = [m for m in global_calendar_data if m['date'] == sel_d]
-                    if filtered:
-                        for m in filtered:
-                            with st.expander(m['label']): st.markdown(m['html'], unsafe_allow_html=True)
+                ds = sorted(list(set([d['date'] for d in global_calendar_data])))
+                if ds:
+                    sel = st.date_input("Data:", value=ds[0], min_value=ds[0])
+                    fil = [x for x in global_calendar_data if x['date'] == sel]
+                    if fil:
+                        for x in fil:
+                            with st.expander(x['label']): st.markdown(x['html'], unsafe_allow_html=True)
                     else: st.warning("Nessuna partita.")
             else: st.write("Nessun dato.")
