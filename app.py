@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE E COSTANTI
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Classic", page_icon="📊", layout="wide")
+st.set_page_config(page_title="SmartBet Hybrid", page_icon="🎛️", layout="wide")
 
 # COSTANTI GLOBALI
 STAGIONE = "2526"
@@ -66,7 +66,7 @@ LEAGUE_GROUPS = {
 }
 
 ALL_LEAGUES = {
-    'UCL': 'Champions League', 'UEL': 'Europa League', 'UECL': 'Conference League',
+    'UCL': '🇪🇺 Champions League', 'UEL': '🇪🇺 Europa League', 'UECL': '🇪🇺 Conference League',
     'I1': '🇮🇹 Serie A', 'E0': '🇬🇧 Premier League', 'SP1': '🇪🇸 La Liga', 'D1': '🇩🇪 Bundesliga', 'F1': '🇫🇷 Ligue 1',
     'N1': '🇳🇱 Eredivisie', 'P1': '🇵🇹 Primeira Liga', 'B1': '🇧🇪 Pro League', 'T1': '🇹🇷 Super Lig',
     'SC0': '🏴󠁧󠁢󠁳󠁣󠁴󠁿 Premiership', 'G1': '🇬🇷 Super League', 'A1': '🇦🇹 Bundesliga', 'SW1': '🇨🇭 Super League',
@@ -325,7 +325,6 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
             if pa >= min_prob: fav_str = f"<span class='term-green'>{fav_str}</span>"
             else: fav_str = f"<span class='term-dim'>{fav_str}</span>"
         
-        # Aggiunta info valori attesi per riferimento
         val_h, val_a = exp_data[key]
         html += f"{label:<10}: {fav_str}  [Exp: {val_h:.1f} vs {val_a:.1f}]\n"
 
@@ -350,7 +349,7 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
                 q = 1/p if p > 0 else 99
                 row_str = f"{prefix+' Ov '+str(l):<15} | {p*100:04.1f}%   | {q:.2f}"
                 
-                # LOGICA VISIBILITA': Mostra sempre, ma colora solo se Top
+                # LOGICA VISIBILITA'
                 if p >= min_prob: 
                     rows_html += f"<span class='term-green'>{row_str}</span>\n"
                 else: 
@@ -369,26 +368,50 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
 # ==============================================================================
 
 with st.sidebar:
-    st.header("🧮 Classic Matrix v45.2")
+    st.header("🎛️ Configurazione")
     api_key_input = st.text_input("API Key", type="password")
     bankroll_input = st.number_input("Bankroll (€)", min_value=10.0, value=26.50, step=0.5)
+    
     st.divider()
-    min_prob_val = st.slider("Probabilità Minima (Evidenziatore)", 0.50, 0.90, 0.65, step=0.05)
+    min_prob_val = st.slider("Probabilità Minima (Verde)", 0.50, 0.90, 0.65, step=0.05)
+    
     st.divider()
-    selected_groups = []
-    for group_name, leagues in LEAGUE_GROUPS.items():
-        if st.checkbox(group_name, value=(group_name == "🇪🇺 Coppe Europee")):
-            selected_groups.extend(leagues)
+    st.markdown("### 🏆 Campionati")
+    
+    # 1. GRUPPI
+    st.markdown("#### 1️⃣ Selezione Rapida (Gruppi)")
+    active_groups = []
+    col1, col2 = st.columns(2)
+    for idx, (g_name, g_codes) in enumerate(LEAGUE_GROUPS.items()):
+        with col1 if idx % 2 == 0 else col2:
+            if st.checkbox(g_name, value=(g_name == "🇪🇺 Coppe Europee")):
+                active_groups.extend(g_codes)
+                
+    # 2. MANUALE
+    st.markdown("#### 2️⃣ Selezione Manuale (Singole)")
+    all_league_options = sorted(list(ALL_LEAGUES.keys()))
+    manual_selection = st.multiselect(
+        "Aggiungi o Scegli Singolarmente:",
+        options=all_league_options,
+        format_func=lambda x: f"{ALL_LEAGUES[x]} ({x})",
+        default=[]
+    )
+    
+    # MERGE SELEZIONI
+    final_selection_codes = list(set(active_groups + manual_selection))
+    st.caption(f"Totale leghe selezionate: {len(final_selection_codes)}")
+    
+    st.divider()
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
 
-st.title("SmartBet Classic UI")
-st.caption("Motore Matrix: Attacco/Difesa Incrociati su TUTTE le statistiche")
+st.title("SmartBet Hybrid Selector")
+st.caption("Seleziona Gruppi + Leghe Singole a Piacere")
 
 start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
 
 if start_analisys:
     if not api_key_input: st.error("Inserisci API Key!")
-    elif not selected_groups: st.error("Seleziona competizioni!")
+    elif not final_selection_codes: st.error("Seleziona almeno una lega!")
     else:
         results_by_league = {}
         global_calendar_data = [] 
@@ -396,17 +419,27 @@ if start_analisys:
         
         # 1. LOAD DATA
         domestic_cache = {}
-        leagues_to_load = [k for k in ALL_LEAGUES.keys() if k not in ['UCL','UEL','UECL']]
+        # Carichiamo solo ciò che serve (ma per coppe serve tutto il domestic)
+        # Se c'è una coppa selezionata, carichiamo tutto il DB domestico per sicurezza
+        has_cups = any(c in ['UCL','UEL','UECL'] for c in final_selection_codes)
+        
+        leagues_to_load = []
+        if has_cups:
+            leagues_to_load = [k for k in ALL_LEAGUES.keys() if k not in ['UCL','UEL','UECL']]
+        else:
+            # Se non ho coppe, carico solo le leghe selezionate (se sono domestiche)
+            leagues_to_load = [k for k in final_selection_codes if k not in ['UCL','UEL','UECL']]
+            
         status = st.empty()
-        status.text("Caricamento database statistici (Matrix)...")
+        status.text("Caricamento database statistici...")
         for idx, code in enumerate(leagues_to_load):
             domestic_cache[code] = scarica_dati(code)
             
         # 2. SCAN
         progress = st.progress(0)
-        total_steps = len(selected_groups)
+        total_steps = len(final_selection_codes)
         
-        for idx, code in enumerate(selected_groups):
+        for idx, code in enumerate(final_selection_codes):
             progress.progress((idx+1)/total_steps)
             league_name = ALL_LEAGUES.get(code, code)
             status.text(f"Analisi: {league_name}...")
@@ -444,32 +477,25 @@ if start_analisys:
                         global_calendar_data.append({'date': raw_date_obj, 'label': f"[{code}] {h_team} vs {a_team}", 'html': html_err})
                         continue
 
-                    # CALCOLO MATRIX SU TUTTE LE STATS
+                    # CALCOLO MATRIX
                     exp_data = {} 
                     metrics = ['Goals', 'Shots', 'Corn', 'Fouls', 'Cards']
                     
                     for met in metrics:
-                        # Recupero dati H (Rating Attacco Casa, Difesa Casa)
                         h_att_r = h_data[f'W_{met}_Att']
                         h_def_r = h_data[f'W_{met}_Def']
-                        h_lea_avg_h = h_avgs[f'{met}_H'] # Media lega casa (quando si gioca in casa)
+                        h_lea_avg_h = h_avgs[f'{met}_H']
                         
-                        # Recupero dati A
                         a_att_r = a_data[f'W_{met}_Att']
                         a_def_r = a_data[f'W_{met}_Def']
-                        a_lea_avg_a = a_avgs[f'{met}_A'] # Media lega ospite (quando si gioca fuori)
+                        a_lea_avg_a = a_avgs[f'{met}_A']
                         
-                        # Calcolo Incrociato
-                        # Exp Home = (Attacco Casa Inter) * (Difesa Fuori Pisa) * (Media Gol Casa Serie A)
                         val_h = h_att_r * a_def_r * h_lea_avg_h * h_coeff
-                        
-                        # Exp Away = (Attacco Fuori Pisa) * (Difesa Casa Inter) * (Media Gol Fuori Serie A - *Wait, use Host League Avgs for standardization*)
-                        # Nota: Usiamo le medie della lega della squadra ospite per il suo attacco base, ma scalato.
                         val_a = a_att_r * h_def_r * a_lea_avg_a * a_coeff
                         
                         exp_data[met] = (val_h, val_a)
 
-                    # ODDS 1X2
+                    # ODDS
                     if q1_b == 0: continue
                     my_q1, my_qX, my_q2 = calcola_1x2_dixon_coles(exp_data['Goals'][0], exp_data['Goals'][1])
                     roi_1 = ((1/my_q1)*q1_b)-1; roi_X = ((1/my_qX)*qX_b)-1; roi_2 = ((1/my_q2)*q2_b)-1
