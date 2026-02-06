@@ -8,9 +8,8 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE E COSTANTI
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro 2026", page_icon="🇪🇺", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 47", page_icon="💶", layout="wide")
 
-# COSTANTI GLOBALI
 STAGIONE = "2526"
 REGION = 'eu'
 MARKET = 'h2h'
@@ -25,13 +24,14 @@ st.markdown("""
     .term-section { color: #00FFFF; font-weight: bold; margin-top: 10px; display: block; } 
     .term-green { color: #00FF00; font-weight: bold; } 
     .term-val { color: #FF00FF; font-weight: bold; }
+    .term-money { color: #50FA7B; font-weight: bold; border: 1px solid #50FA7B; padding: 2px 5px; border-radius: 4px; }
     .term-warn { color: #FF4500; font-weight: bold; background-color: #330000; padding: 2px; }
     .term-dim { color: #555555; }
     .streamlit-expanderHeader { font-weight: bold; background-color: #f0f2f6; border-radius: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- DATABASE LEGHE ---
+# --- DATABASE ---
 LEAGUE_GROUPS = {
     "🇪🇺 Coppe Europee": ['UCL', 'UEL', 'UECL'],
     "🏆 Top 5 (Tier 1)": ['I1', 'E0', 'SP1', 'D1', 'F1'],
@@ -67,35 +67,22 @@ LEAGUE_COEFF = {
     'D2': 0.65, 'I2': 0.60, 'SP2': 0.60, 'E2': 0.55
 }
 
-# --- MEGA MAPPING 46.3 (Log Fixes) ---
 TEAM_MAPPING = {
-    # *** FIX URGENTI DAL LOG ***
-    # Austria
-    'Austria Wien': 'Austria Vienna', 'FC Blau-Weiß Linz': 'BW Linz', 'Grazer AK': 'Grazer',
+    'Austria Wien': 'Austria Vienna', 'FC Blau-Weiß Linz': 'BW Linz', 'Grazer AK': 'GAK',
     'Hartberg': 'Hartberg', 'LASK': 'LASK Linz', 'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
     'Rapid Wien': 'Rapid Vienna', 'Rheindorf Altach': 'Altach', 'Ried': 'Ried',
-    'Sturm Graz': 'Sturm Graz', 'WSG Tirol': 'Tirol', 'Wolfsberger AC': 'Wolfsberger',
-    # Svizzera
-    'BSC Young Boys': 'Young Boys', 'Young Boys': 'Young Boys', 'FC Basel': 'Basel',
-    'FC Lausanne-Sport': 'Lausanne', 'FC Lugano': 'Lugano', 'FC Luzern': 'Luzern', 
+    'Sturm Graz': 'Sturm Graz', 'SK Sturm Graz': 'Sturm Graz', 'WSG Tirol': 'Tirol', 'Wolfsberger AC': 'Wolfsberger',
+    'BSC Young Boys': 'Young Boys', 'FC Basel': 'Basel', 'FC Lausanne-Sport': 'Lausanne',
+    'FC Lugano': 'Lugano', 'Lugano': 'Lugano', 'FC Luzern': 'Luzern', 
     'FC Sion': 'Sion', 'FC St Gallen': 'St Gallen', 'FC Thun': 'Thun', 
     'FC Winterthur': 'Winterthur', 'FC Zurich': 'Zurich', 'Grasshopper Zürich': 'Grasshoppers', 'Servette': 'Servette',
-    # Spagna (Accenti e B teams)
     'Atlético Madrid': 'Ath Madrid', 'Espanyol': 'Espanyol', 'Real Sociedad B': 'Sociedad B',
-    # Italia (Caratteri speciali)
     'Südtirol': 'Sudtirol', 'US Catanzaro 1929': 'Catanzaro',
-    # Germania (Caratteri speciali)
     'SC Preußen Münster': 'Preussen Munster', 'VfL Bochum': 'Bochum', 
-    # Grecia
     'AE Kifisia FC': 'Kifisias', 'Levadiakos': 'Levadiakos',
-    # Portogallo
     'AVS Futebol SAD': 'Avs',
-    # UK
     'Wimbledon': 'AFC Wimbledon',
-    # Turchia
     'Basaksehir': 'Basaksehir', 'Goztepe': 'Goztepe',
-
-    # *** MAPPING STANDARD ***
     'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Napoli': 'Napoli', 'Juventus': 'Juventus',
     'Atalanta BC': 'Atalanta', 'Hellas Verona': 'Verona', 'Udinese Calcio': 'Udinese', 
     'Cagliari Calcio': 'Cagliari', 'US Lecce': 'Lecce', 'Empoli FC': 'Empoli', 
@@ -123,7 +110,7 @@ TEAM_MAPPING = {
     'Doncaster Rovers': 'Doncaster', 'Exeter City': 'Exeter', 'Huddersfield Town': 'Huddersfield',
     'Lincoln City': 'Lincoln', 'Mansfield Town': 'Mansfield', 'Northampton Town': 'Northampton',
     'Peterborough United': 'Peterboro', 'Rotherham United': 'Rotherham', 'Stockport County FC': 'Stockport',
-    'Wigan Athletic': 'Wigan', 'Wycombe Wanderers': 'Wycombe',
+    'Wigan Athletic': 'Wigan', 'Wimbledon': 'Wimbledon', 'Wycombe Wanderers': 'Wycombe',
     'Bayern Munich': 'Bayern Munich', 'Bayer Leverkusen': 'Leverkusen', 'Borussia Dortmund': 'Dortmund',
     'Borussia Monchengladbach': "M'gladbach", '1. FC Köln': 'FC Koln', 'FSV Mainz 05': 'Mainz', 'Mainz 05': 'Mainz',
     'VfL Wolfsburg': 'Wolfsburg', 'FC St. Pauli': 'St Pauli', 'Holstein Kiel': 'Holstein Kiel',
@@ -133,18 +120,18 @@ TEAM_MAPPING = {
     'Arminia Bielefeld': 'Bielefeld', 'Dynamo Dresden': 'Dresden', 'Eintracht Braunschweig': 'Braunschweig',
     'FC Schalke 04': 'Schalke 04', 'Fortuna Düsseldorf': 'Fortuna Dusseldorf', 'Greuther Fürth': 'Greuther Furth',
     'Hannover 96': 'Hannover', 'Hertha Berlin': 'Hertha', 'Karlsruher SC': 'Karlsruhe',
-    'SC Paderborn': 'Paderborn', 'SV Darmstadt 98': 'Darmstadt',
+    'SC Paderborn': 'Paderborn', 'SC Preußen Münster': 'Preussen Munster', 'SV Darmstadt 98': 'Darmstadt',
     'Eintracht Frankfurt': 'Ein Frankfurt', 'VfB Stuttgart': 'Stuttgart', 'SC Freiburg': 'Freiburg',
-    'Athletic Bilbao': 'Ath Bilbao', 'Real Betis': 'Betis', 'Real Sociedad': 'Sociedad', 
+    'Atletico Madrid': 'Ath Madrid', 'Athletic Bilbao': 'Ath Bilbao', 'Real Betis': 'Betis', 'Real Sociedad': 'Sociedad', 
     'Rayo Vallecano': 'Vallecano', 'Alavés': 'Alaves', 'Cadiz CF': 'Cadiz', 
-    'UD Las Palmas': 'Las Palmas', 'RCD Espanyol': 'Espanyol',
+    'UD Las Palmas': 'Las Palmas', 'RCD Espanyol': 'Espanyol', 'Espanyol': 'Espanyol',
     'Real Valladolid': 'Valladolid', 'Leganés': 'Leganes', 'Girona FC': 'Girona',
     'CA Osasuna': 'Osasuna', 'Elche CF': 'Elche', 'Celta Vigo': 'Celta',
     'AD Ceuta FC': 'Ceuta', 'Almería': 'Almeria', 'Andorra CF': 'Andorra', 'Burgos CF': 'Burgos',
     'CD Castellón': 'Castellon', 'CD Mirandés': 'Mirandes', 'Cádiz CF': 'Cadiz', 'Córdoba': 'Cordoba',
     'Deportivo La Coruña': 'La Coruna', 'Granada CF': 'Granada', 'Málaga': 'Malaga',
-    'Real Racing Club de Santander': 'Santander', 'Real Valladolid CF': 'Valladolid', 
-    'SD Eibar': 'Eibar', 'SD Huesca': 'Huesca', 'Sporting Gijón': 'Sp Gijon',
+    'Real Racing Club de Santander': 'Santander', 'Real Sociedad B': 'R Sociedad B', 
+    'Real Valladolid CF': 'Valladolid', 'SD Eibar': 'Eibar', 'SD Huesca': 'Huesca', 'Sporting Gijón': 'Sp Gijon',
     'Paris Saint Germain': 'Paris SG', 'Marseille': 'Marseille', 'Lyon': 'Lyon', 
     'RC Lens': 'Lens', 'AS Monaco': 'Monaco', 'Lille OSC': 'Lille', 'Nice': 'Nice', 'Brest': 'Brest',
     'PSV Eindhoven': 'PSV Eindhoven', 'Feyenoord Rotterdam': 'Feyenoord', 'Ajax Amsterdam': 'Ajax', 
@@ -157,23 +144,35 @@ TEAM_MAPPING = {
     'Benfica': 'Benfica', 'FC Porto': 'Porto', 'Vitoria Guimaraes': 'Guimaraes',
     'Boavista FC': 'Boavista', 'Estoril Praia': 'Estoril', 'Casa Pia AC': 'Casa Pia',
     'Farense': 'Farense', 'Arouca': 'Arouca', 'Gil Vicente': 'Gil Vicente',
-    'Braga': 'Sp Braga', 'SC Braga': 'Sp Braga', 'CF Estrela': 'Estrela',
+    'AVS Futebol SAD': 'Avs', 'Braga': 'Sp Braga', 'SC Braga': 'Sp Braga', 'CF Estrela': 'Estrela',
     'Famalicão': 'Famalicao', 'Moreirense FC': 'Moreirense', 'Rio Ave FC': 'Rio Ave',
     'Vitória SC': 'Guimaraes', 'Sporting CP': 'Sp Lisbon', 'Sporting Lisbon': 'Sp Lisbon',
-    'AEL': 'Larisa', 'Aris Thessaloniki': 'Aris', 'Atromitos Athens': 'Atromitos', 
+    'Austria Wien': 'Austria Vienna', 'FC Blau-Weiß Linz': 'BW Linz', 'Grazer AK': 'Grazer',
+    'Hartberg': 'Hartberg', 'LASK': 'LASK Linz', 'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
+    'Rapid Wien': 'Rapid Vienna', 'Rheindorf Altach': 'Altach', 'Ried': 'Ried',
+    'Sturm Graz': 'Sturm Graz', 'SK Sturm Graz': 'Sturm Graz', 'WSG Tirol': 'Tirol', 'Wolfsberger AC': 'Wolfsberger',
+    'Salzburg': 'Salzburg',
+    'BSC Young Boys': 'Young Boys', 'Young Boys': 'Young Boys', 'FC Basel': 'Basel',
+    'FC Lausanne-Sport': 'Lausanne', 'FC Lugano': 'Lugano', 'Lugano': 'Lugano',
+    'FC Luzern': 'Luzern', 'FC Sion': 'Sion', 'FC St Gallen': 'St Gallen',
+    'FC Thun': 'Thun', 'FC Winterthur': 'Winterthur', 'FC Zurich': 'Zurich',
+    'Grasshopper Zürich': 'Grasshoppers', 'Servette': 'Servette',
+    'AE Kifisia FC': 'Kifisias', 'AEL': 'Larisa', 'Aris Thessaloniki': 'Aris',
+    'Atromitos Athens': 'Atromitos', 'Levadiakos': 'Levadiakos', 
     'PAOK Thessaloniki': 'PAOK', 'PAOK Salonika': 'PAOK',
-    'Panserraikos FC': 'Panserraikos', 'Olympiakos Piraeus': 'Olympiakos', 'Panathinaikos FC': 'Panathinaikos', 'AEK Athens': 'AEK',
-    'Istanbul Basaksehir': 'Basaksehir',
-    'Besiktas JK': 'Besiktas', 
+    'Panetolikos Agrinio': 'Panetolikos', 'Panserraikos FC': 'Panserraikos', 'Volos FC': 'Volos NFC',
+    'Olympiakos Piraeus': 'Olympiakos', 'Panathinaikos FC': 'Panathinaikos', 'AEK Athens': 'AEK',
+    'Basaksehir': 'Basaksehir', 'Istanbul Basaksehir': 'Basaksehir',
+    'Besiktas JK': 'Besiktas', 'Besiktas': 'Besiktas',
     'Eyüpspor': 'Eyupspor', 'Fatih Karagümrük': 'Karagumruk',
     'Gazişehir Gaziantep': 'Gaziantep', 'Genclerbirligi SK': 'Genclerbirligi',
-    'Kasimpasa SK': 'Kasimpasa', 'Kasimpasa': 'Kasimpasa',
+    'Goztepe': 'Goztepe', 'Kasimpasa SK': 'Kasimpasa', 'Kasimpasa': 'Kasimpasa',
     'Torku Konyaspor': 'Konyaspor', 'Çaykur Rizespor': 'Rizespor',
     'Galatasaray': 'Galatasaray', 'Fenerbahce': 'Fenerbahce', 'Trabzonspor': 'Trabzonspor',
     'Celtic': 'Celtic', 'Rangers': 'Rangers', 'Rangers FC': 'Rangers',
     'Aberdeen': 'Aberdeen', 'Hearts': 'Hearts',
     'KRC Genk': 'Genk', 'Union Saint-Gilloise': 'St Gilloise',
-    'AS Roma': 'Roma', 'Roma': 'Roma'
+    'AS Monaco': 'Monaco', 'AS Roma': 'Roma', 'Roma': 'Roma'
 }
 
 # ==============================================================================
@@ -212,13 +211,18 @@ def scarica_dati(codice_lega):
             'Cards_H': df['HY'].mean(), 'Cards_A': df['AY'].mean(),
         }
         
-        h_df = df[['Date','HomeTeam']].rename(columns={'HomeTeam':'Team'})
+        # TREND FORM (W-D-L)
+        df['Result'] = np.where(df['FTHG'] > df['FTAG'], 'H', np.where(df['FTHG'] < df['FTAG'], 'A', 'D'))
+        
+        h_df = df[['Date','HomeTeam','Result']].rename(columns={'HomeTeam':'Team'})
         h_df['IsHome'] = 1
+        h_df['FormChar'] = np.where(h_df['Result'] == 'H', 'W', np.where(h_df['Result'] == 'A', 'L', 'D'))
         h_df['Goals_For'] = df['FTHG']; h_df['Shots_For'] = df['HST']; h_df['Corn_For'] = df['HC']; h_df['Fouls_For'] = df['HF']; h_df['Cards_For'] = df['HY']
         h_df['Goals_Ag'] = df['FTAG']; h_df['Shots_Ag'] = df['AST']; h_df['Corn_Ag'] = df['AC']; h_df['Fouls_Ag'] = df['AF']; h_df['Cards_Ag'] = df['AY']
         
-        a_df = df[['Date','AwayTeam']].rename(columns={'AwayTeam':'Team'})
+        a_df = df[['Date','AwayTeam','Result']].rename(columns={'AwayTeam':'Team'})
         a_df['IsHome'] = 0
+        a_df['FormChar'] = np.where(a_df['Result'] == 'A', 'W', np.where(a_df['Result'] == 'H', 'L', 'D'))
         a_df['Goals_For'] = df['FTAG']; a_df['Shots_For'] = df['AST']; a_df['Corn_For'] = df['AC']; a_df['Fouls_For'] = df['AF']; a_df['Cards_For'] = df['AY']
         a_df['Goals_Ag'] = df['FTHG']; a_df['Shots_Ag'] = df['HST']; a_df['Corn_Ag'] = df['HC']; a_df['Fouls_Ag'] = df['HF']; a_df['Cards_Ag'] = df['HY']
         
@@ -239,6 +243,17 @@ def get_live_matches(api_key, sport_key):
     url = f'https://api.the-odds-api.com/v4/sports/{sport_key}/odds/?apiKey={api_key}&regions={REGION}&markets={MARKET}'
     try: return requests.get(url).json()
     except: return []
+
+# --- KELLY CALCULATOR ---
+def calculate_kelly_stake(bankroll, odds, probability, fraction=0.3):
+    """Calcola la puntata ideale in Euro usando Kelly Frazionario"""
+    if odds <= 1 or probability <= 0: return 0.0
+    b = odds - 1
+    q = 1 - probability
+    f = (b * probability - q) / b
+    safe_f = max(0, f) * fraction # Frazionario per sicurezza
+    stake = bankroll * safe_f
+    return round(stake, 2)
 
 def calcola_1x2_dixon_coles(lam_h, lam_a):
     mat = np.zeros((6,6))
@@ -265,9 +280,13 @@ def find_team_stats_global(team_name, cache_dataframes):
         team_stats = df_weighted[df_weighted['Team'] == team_name]
         if not team_stats.empty:
             last_row = team_stats.iloc[-1]
+            # Recupera ultime 5 partite per form string
+            last_5 = df_weighted[df_weighted['Team'] == team_name].tail(5)
+            form_str = "-".join(last_5['FormChar'].tolist())
+            
             coeff = LEAGUE_COEFF.get(league_code, 0.65)
-            return last_row, coeff, averages 
-    return None, 0, None
+            return last_row, coeff, averages, form_str, league_code
+    return None, 0, None, "N/A", "N/A"
 
 def generate_missing_data_terminal(h_team, a_team, h_found, a_found, bookie_odds):
     html = f"""<div class='terminal-missing'>"""
@@ -277,27 +296,34 @@ def generate_missing_data_terminal(h_team, a_team, h_found, a_found, bookie_odds
     html += f"\nODDS: 1:{bookie_odds['1']:.2f} X:{bookie_odds['X']:.2f} 2:{bookie_odds['2']:.2f}</div>"
     return html
 
-def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_prob, last_date_h, last_date_a):
+def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_prob, last_date_h, last_date_a, bankroll, h_form, a_form):
     html = f"""<div class='terminal-box'>"""
     
     max_date = max(last_date_h, last_date_a)
     days_lag = (datetime.now() - max_date).days
     if days_lag > 14: html += f"<div class='term-warn'>⚠️ DATI VECCHI ({days_lag}gg)</div>\n"
     
-    # 1X2
-    html += f"<span class='term-section'>[ 1X2 ]</span>\n"
-    html += f"{'SEGNO':<6} | {'MY QUOTA':<10} | {'BOOKIE':<8} | {'VALUE'}\n"
-    html += "-"*45 + "\n"
+    # FORMA
+    html += f"FORMA: {h_team:<15} [{h_form}] vs [{a_form}] {a_team}\n"
+    
+    # 1X2 CON KELLY
+    html += f"\n<span class='term-section'>[ 1X2 & MONEY MANAGEMENT ]</span>\n"
+    html += f"{'SEGNO':<6} | {'MY QUOTA':<10} | {'BOOKIE':<8} | {'VALUE':<8} | {'PUNTA €'}\n"
+    html += "-"*60 + "\n"
     segni = [('1', roi_1x2['1'], odds_1x2['1']), ('X', roi_1x2['X'], odds_1x2['X']), ('2', roi_1x2['2'], odds_1x2['2'])]
     for segno, roi, book_q in segni:
         my_q = book_q / (roi + 1) if (roi+1) > 0 else 99.0
-        val_str = f"{roi*100:+.0f}%"
-        implied_prob = 1/my_q if my_q > 0 else 0
+        prob = 1/my_q if my_q > 0 else 0
+        
+        stake = calculate_kelly_stake(bankroll, book_q, prob) if roi > 0 else 0.0
+        
         if book_q == 0: val_str="ERR"
-        elif roi >= 0.15 and book_q <= 4.0 and implied_prob >= min_prob: val_str = f"<span class='term-val'>{val_str} (TOP)</span>"
-        elif roi > 0 and implied_prob >= min_prob: val_str = f"<span class='term-green'>{val_str}</span>"
-        else: val_str = f"<span class='term-dim'>{val_str}</span>"
-        html += f"{segno:<6} | {my_q:<10.2f} | {book_q:<8.2f} | {val_str}\n"
+        elif roi >= 0.15 and book_q <= 4.0 and prob >= min_prob: val_str = f"<span class='term-val'>{roi*100:+.0f}% (TOP)</span>"
+        elif roi > 0 and prob >= min_prob: val_str = f"<span class='term-green'>{roi*100:+.0f}%</span>"
+        else: val_str = f"<span class='term-dim'>{roi*100:+.0f}%</span>"
+        
+        stake_str = f"<span class='term-money'>€ {stake:.2f}</span>" if stake > 0 else "-"
+        html += f"{segno:<6} | {my_q:<10.2f} | {book_q:<8.2f} | {val_str:<20} | {stake_str}\n"
 
     # TESTA A TESTA
     html += f"\n<span class='term-section'>[ TESTA A TESTA ]</span>\n"
@@ -385,15 +411,14 @@ with st.sidebar:
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
     inspect_csv_mode = st.checkbox("🔍 ISPEZIONA NOMI CSV", value=False)
 
-st.title("SmartBet Hybrid Selector")
-st.caption("Seleziona Gruppi + Leghe Singole a Piacere")
+st.title("SmartBet Pro 47")
+st.caption("Matrix Logic + Kelly Criterion + Trend Radar")
 
 start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
 
 if inspect_csv_mode and api_key_input and final_selection_codes:
     st.info("MODALITÀ ISPEZIONE ATTIVA: Sto scaricando i CSV per mostrarti i nomi reali...")
     domestic_cache = {}
-    
     leagues_to_load = [k for k in final_selection_codes if k not in ['UCL','UEL','UECL']]
     if any(c in ['UCL','UEL','UECL'] for c in final_selection_codes):
         leagues_to_load = [k for k in ALL_LEAGUES.keys() if k not in ['UCL','UEL','UECL']]
@@ -449,8 +474,9 @@ if start_analisys:
                     a_team = TEAM_MAPPING.get(a_raw, a_raw)
                     raw_date_obj, fmt_date_str = parse_date(m.get('commence_time', ''))
                     
-                    h_data, h_coeff, h_avgs = find_team_stats_global(h_team, domestic_cache)
-                    a_data, a_coeff, a_avgs = find_team_stats_global(a_team, domestic_cache)
+                    # LOGICA CROSS-SEARCH
+                    h_data, h_coeff, h_avgs, h_form, h_lg = find_team_stats_global(h_team, domestic_cache)
+                    a_data, a_coeff, a_avgs, a_form, a_lg = find_team_stats_global(a_team, domestic_cache)
                     
                     q1_b, qX_b, q2_b = 0,0,0
                     for b in m['bookmakers']:
@@ -482,8 +508,18 @@ if start_analisys:
                         a_def_r = a_data[f'W_{met}_Def']
                         a_lea_avg_a = a_avgs[f'{met}_A']
                         
-                        val_h = h_att_r * a_def_r * h_lea_avg_h * h_coeff
-                        val_a = a_att_r * h_def_r * a_lea_avg_a * a_coeff
+                        # FIX LOGICO COEFFICIENTE:
+                        # Se è una coppa europea -> Usa Coefficiente
+                        # Se è campionato domestico (es. Serie B) -> Coeff forzato a 1.0
+                        if code in ['UCL', 'UEL', 'UECL']:
+                            final_h_coeff = h_coeff
+                            final_a_coeff = a_coeff
+                        else:
+                            final_h_coeff = 1.0
+                            final_a_coeff = 1.0
+                        
+                        val_h = h_att_r * a_def_r * h_lea_avg_h * final_h_coeff
+                        val_a = a_att_r * h_def_r * a_lea_avg_a * final_a_coeff
                         
                         exp_data[met] = (val_h, val_a)
 
@@ -494,7 +530,7 @@ if start_analisys:
                     html_block = generate_complete_terminal(
                         h_team, a_team, exp_data, 
                         {'1':q1_b,'X':qX_b,'2':q2_b}, {'1':roi_1,'X':roi_X,'2':roi_2},
-                        min_prob_val, h_data['Date'], a_data['Date']
+                        min_prob_val, h_data['Date'], a_data['Date'], bankroll_input, h_form, a_form
                     )
                     
                     item = {'label': f"✅ {fmt_date_str} | {h_team} vs {a_team}", 'html': html_block}
