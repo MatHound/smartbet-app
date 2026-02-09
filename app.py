@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Auto-Sniper", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 49.1", page_icon="🎯", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -35,6 +35,7 @@ st.markdown("""
 # Session State
 if 'results_data' not in st.session_state: st.session_state['results_data'] = {}
 if 'calendar_data' not in st.session_state: st.session_state['calendar_data'] = []
+if 'missing_log' not in st.session_state: st.session_state['missing_log'] = []
 
 # --- DATABASE LEGHE ---
 LEAGUE_GROUPS = {
@@ -451,6 +452,7 @@ with st.sidebar:
     st.caption(f"Totale leghe selezionate: {len(final_selection_codes)}")
     
     st.divider()
+    show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
     inspect_csv_mode = st.checkbox("🔍 ISPEZIONA NOMI CSV", value=False)
 
 st.title("SmartBet Auto-Sniper")
@@ -463,7 +465,7 @@ with tab_main:
     start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
 
     if inspect_csv_mode and api_key_input and final_selection_codes:
-        st.info("MODALITÀ ISPEZIONE ATTIVA...")
+        st.info("MODALITÀ ISPEZIONE ATTIVA: Sto scaricando i CSV per mostrarti i nomi reali...")
         domestic_cache = {}
         leagues_to_load = [k for k in final_selection_codes if k not in ['UCL','UEL','UECL']]
         if any(c in ['UCL','UEL','UECL'] for c in final_selection_codes):
@@ -483,6 +485,7 @@ with tab_main:
             # RESET SESSION
             st.session_state['results_data'] = {}
             st.session_state['calendar_data'] = []
+            st.session_state['missing_log'] = []
             
             domestic_cache = {}
             has_cups = any(c in ['UCL','UEL','UECL'] for c in final_selection_codes)
@@ -526,6 +529,8 @@ with tab_main:
                                         elif o['name'] == a_raw: q2_b = o['price']
                         
                         if h_data is None or a_data is None:
+                            if h_data is None: st.session_state['missing_log'].append(f"LEGA {code}: '{h_raw}' -> Missing")
+                            if a_data is None: st.session_state['missing_log'].append(f"LEGA {code}: '{a_raw}' -> Missing")
                             html_err = generate_missing_data_terminal(h_team, a_team, (h_data is not None), (a_data is not None), {'1':q1_b,'X':qX_b,'2':q2_b})
                             item_err = {'label': f"⚠️ {fmt_date_str} | {h_team} vs {a_team} ({code})", 'html': html_err, 'raw_date': raw_date_obj}
                             st.session_state['results_data'][league_name].append(item_err)
@@ -572,6 +577,11 @@ with tab_main:
 
             status.empty()
             st.success("Analisi Completata. Le giocate TOP sono state salvate nel Registro!")
+            
+            # Show debug if requested
+            if show_mapping_errors and st.session_state['missing_log']:
+                st.warning(f"⚠️ Debug: {len(st.session_state['missing_log'])} squadre non trovate.")
+                st.text_area("📋 Copia questa lista:", value="\n".join(sorted(list(set(st.session_state['missing_log'])))), height=200)
 
     if st.session_state['results_data']:
         active_leagues = [l for l in st.session_state['results_data'] if st.session_state['results_data'][l]]
