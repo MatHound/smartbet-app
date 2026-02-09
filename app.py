@@ -7,9 +7,9 @@ from scipy.stats import poisson
 from datetime import datetime, timedelta
 
 # ==============================================================================
-# 1. CONFIGURAZIONE E COSTANTI
+# 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro 2026", page_icon="📝", layout="wide")
+st.set_page_config(page_title="SmartBet Auto-Sniper", page_icon="🎯", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -25,23 +25,16 @@ st.markdown("""
     .term-header { color: #FFD700; font-weight: bold; } 
     .term-section { color: #00FFFF; font-weight: bold; margin-top: 10px; display: block; } 
     .term-green { color: #00FF00; font-weight: bold; } 
-    .term-val { color: #FF00FF; font-weight: bold; }
-    .term-money { color: #50FA7B; font-weight: bold; border: 1px solid #50FA7B; padding: 2px 5px; border-radius: 4px; }
+    .term-val { color: #FF00FF; font-weight: bold; } /* ROSA FLUO */
     .term-warn { color: #FF4500; font-weight: bold; background-color: #330000; padding: 2px; }
     .term-dim { color: #555555; }
-    .win-tag { background-color: #006400; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-    .loss-tag { background-color: #8B0000; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-    .pending-tag { background-color: #555; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+    .streamlit-expanderHeader { font-weight: bold; background-color: #f0f2f6; border-radius: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- INIZIALIZZAZIONE SESSION STATE (MEMORIA) ---
-if 'results_data' not in st.session_state:
-    st.session_state['results_data'] = {}
-if 'calendar_data' not in st.session_state:
-    st.session_state['calendar_data'] = []
-if 'missing_log' not in st.session_state:
-    st.session_state['missing_log'] = []
+# Session State
+if 'results_data' not in st.session_state: st.session_state['results_data'] = {}
+if 'calendar_data' not in st.session_state: st.session_state['calendar_data'] = []
 
 # --- DATABASE LEGHE ---
 LEAGUE_GROUPS = {
@@ -79,7 +72,7 @@ LEAGUE_COEFF = {
     'D2': 0.65, 'I2': 0.60, 'SP2': 0.60, 'E2': 0.55
 }
 
-# --- MEGA MAPPING 46.3 ---
+# --- MAPPING 46.3 ---
 TEAM_MAPPING = {
     'Austria Wien': 'Austria Vienna', 'FC Blau-Weiß Linz': 'BW Linz', 'Grazer AK': 'GAK',
     'Hartberg': 'Hartberg', 'LASK': 'LASK Linz', 'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
@@ -93,8 +86,7 @@ TEAM_MAPPING = {
     'Südtirol': 'Sudtirol', 'US Catanzaro 1929': 'Catanzaro',
     'SC Preußen Münster': 'Preussen Munster', 'VfL Bochum': 'Bochum', 
     'AE Kifisia FC': 'Kifisias', 'Levadiakos': 'Levadiakos',
-    'AVS Futebol SAD': 'Avs',
-    'Wimbledon': 'AFC Wimbledon',
+    'AVS Futebol SAD': 'Avs', 'Wimbledon': 'AFC Wimbledon',
     'Basaksehir': 'Basaksehir', 'Goztepe': 'Goztepe',
     'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Napoli': 'Napoli', 'Juventus': 'Juventus',
     'Atalanta BC': 'Atalanta', 'Hellas Verona': 'Verona', 'Udinese Calcio': 'Udinese', 
@@ -189,7 +181,7 @@ TEAM_MAPPING = {
 }
 
 # ==============================================================================
-# 2. FUNZIONI CORE
+# FUNZIONI CORE
 # ==============================================================================
 
 def parse_date(iso_date_str):
@@ -208,6 +200,11 @@ def load_portfolio():
 
 def save_bet_to_csv(date, league, match, bet, odds, stake, raw_date):
     df = load_portfolio()
+    # Check Anti-Doppione
+    duplicate = df[(df['Match'] == match) & (df['Bet'] == bet)]
+    if not duplicate.empty:
+        return # Già salvata
+    
     new_row = pd.DataFrame([{
         "Date": date, "League": league, "Match": match, "Bet": bet, 
         "Odds": odds, "Stake": stake, "Result": "Pending", "Profit": 0.0, "RawDate": raw_date
@@ -248,7 +245,6 @@ def check_results_automatic(portfolio_df, cache_dataframes):
                 portfolio_df.at[idx, 'Profit'] = (row['Stake'] * row['Odds'] - row['Stake']) if win else -row['Stake']
                 updated = True
                 break
-    
     if updated: portfolio_df.to_csv(TRACKER_FILE, index=False)
     return portfolio_df
 
@@ -317,8 +313,7 @@ def calculate_kelly_stake(bankroll, odds, probability, fraction=0.3):
 def calcola_1x2_dixon_coles(lam_h, lam_a):
     mat = np.zeros((6,6))
     for i in range(6):
-        for j in range(6):
-            mat[i,j] = poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
+        for j in range(6): mat[i,j] = poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
     rho = 0.13
     mat[0,0] *= (1 - (lam_h * lam_a * rho)); mat[0,1] *= (1 + (lam_h * rho))
     mat[1,0] *= (1 + (lam_a * rho)); mat[1,1] *= (1 - rho)
@@ -353,13 +348,11 @@ def generate_missing_data_terminal(h_team, a_team, h_found, a_found, bookie_odds
     html += f"\nODDS: 1:{bookie_odds['1']:.2f} X:{bookie_odds['X']:.2f} 2:{bookie_odds['2']:.2f}</div>"
     return html
 
-def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_prob, last_date_h, last_date_a, bankroll, h_form, a_form, league_name, raw_date_obj):
+def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_prob, last_date_h, last_date_a, bankroll, h_form, a_form):
     html = f"""<div class='terminal-box'>"""
-    
     max_date = max(last_date_h, last_date_a)
     days_lag = (datetime.now() - max_date).days
     if days_lag > 14: html += f"<div class='term-warn'>⚠️ DATI VECCHI ({days_lag}gg)</div>\n"
-    
     html += f"FORMA: {h_team:<15} [{h_form}] vs [{a_form}] {a_team}\n"
     
     # 1X2
@@ -367,17 +360,14 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
     html += f"{'SEGNO':<6} | {'MY QUOTA':<10} | {'BOOKIE':<8} | {'VALUE':<8} | {'PUNTA €'}\n"
     html += "-"*60 + "\n"
     segni = [('1', roi_1x2['1'], odds_1x2['1']), ('X', roi_1x2['X'], odds_1x2['X']), ('2', roi_1x2['2'], odds_1x2['2'])]
-    
     for segno, roi, book_q in segni:
         my_q = book_q / (roi + 1) if (roi+1) > 0 else 99.0
         prob = 1/my_q if my_q > 0 else 0
         stake = calculate_kelly_stake(bankroll, book_q, prob) if roi > 0 else 0.0
         
         if book_q == 0: val_str="ERR"
-        elif roi >= 0.15 and book_q <= 4.0 and prob >= min_prob: 
-            val_str = f"<span class='term-val'>{roi*100:+.0f}% (TOP)</span>"
-        elif roi > 0 and prob >= min_prob: 
-            val_str = f"<span class='term-green'>{roi*100:+.0f}%</span>"
+        elif roi >= 0.15 and book_q <= 4.0 and prob >= min_prob: val_str = f"<span class='term-val'>{roi*100:+.0f}% (TOP)</span>"
+        elif roi > 0 and prob >= min_prob: val_str = f"<span class='term-green'>{roi*100:+.0f}%</span>"
         else: val_str = f"<span class='term-dim'>{roi*100:+.0f}%</span>"
         
         stake_str = f"<span class='term-money'>€ {stake:.2f}</span>" if stake > 0 else "-"
@@ -396,7 +386,6 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
             fav_str = f"OSP ({pa*100:.0f}%)"
             if pa >= min_prob: fav_str = f"<span class='term-green'>{fav_str}</span>"
             else: fav_str = f"<span class='term-dim'>{fav_str}</span>"
-        
         val_h, val_a = exp_data[key]
         html += f"{label:<10}: {fav_str}  [Exp: {val_h:.1f} vs {val_a:.1f}]\n"
 
@@ -408,12 +397,10 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
         ("FALLI", exp_data['Fouls'], [10.5, 11.5, 12.5], [10.5, 11.5, 12.5], [21.5, 22.5, 23.5]),
         ("CARDS", exp_data['Cards'], [1.5, 2.5], [1.5, 2.5], [3.5, 4.5])
     ]
-    
     for label, (eh, ea), r_h, r_a, r_tot in prop_configs:
         html += f"\n<span class='term-section'>[ {label} DETTAGLIO ]</span>\n"
         html += f"{'LINEA':<15} | {'PROB %':<8} | {'QUOTA'}\n"
         html += "-"*40 + "\n"
-        
         def add_rows(prefix, r, exp):
             rows_html = ""
             for l in r:
@@ -423,7 +410,6 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
                 if p >= min_prob: rows_html += f"<span class='term-green'>{row_str}</span>\n"
                 else: rows_html += f"<span class='term-dim'>{row_str}</span>\n"
             return rows_html
-            
         html += add_rows("CASA", r_h, eh)
         html += add_rows("OSP", r_a, ea)
         html += add_rows("TOT", r_tot, eh+ea)
@@ -432,7 +418,7 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
     return html
 
 # ==============================================================================
-# 3. INTERFACCIA
+# INTERFACCIA
 # ==============================================================================
 
 with st.sidebar:
@@ -461,16 +447,14 @@ with st.sidebar:
         format_func=lambda x: f"{ALL_LEAGUES[x]} ({x})",
         default=[]
     )
-    
     final_selection_codes = list(set(active_groups + manual_selection))
     st.caption(f"Totale leghe selezionate: {len(final_selection_codes)}")
     
     st.divider()
-    show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
     inspect_csv_mode = st.checkbox("🔍 ISPEZIONA NOMI CSV", value=False)
 
-st.title("SmartBet Pro 2026 - Custom Tracker")
-st.caption("Custom Bet Manager + 3 Tabs Layout")
+st.title("SmartBet Auto-Sniper")
+st.caption("Auto-Saving Giocate TOP (1X2)")
 
 # TABS PRINCIPALI
 tab_main, tab_cal, tab_tracker = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO", "💰 REGISTRO"])
@@ -479,7 +463,7 @@ with tab_main:
     start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
 
     if inspect_csv_mode and api_key_input and final_selection_codes:
-        st.info("MODALITÀ ISPEZIONE ATTIVA: Sto scaricando i CSV per mostrarti i nomi reali...")
+        st.info("MODALITÀ ISPEZIONE ATTIVA...")
         domestic_cache = {}
         leagues_to_load = [k for k in final_selection_codes if k not in ['UCL','UEL','UECL']]
         if any(c in ['UCL','UEL','UECL'] for c in final_selection_codes):
@@ -490,31 +474,23 @@ with tab_main:
                 teams = sorted(df['Team'].unique())
                 with st.expander(f"Squadre in {ALL_LEAGUES[code]} ({code})"):
                     st.code("\n".join(teams))
-            else: st.error(f"Impossibile scaricare CSV per {ALL_LEAGUES[code]}")
         st.stop() 
 
     if start_analisys:
         if not api_key_input: st.error("Inserisci API Key!")
         elif not final_selection_codes: st.error("Seleziona almeno una lega!")
         else:
-            # Pulisci session state per nuova ricerca
+            # RESET SESSION
             st.session_state['results_data'] = {}
             st.session_state['calendar_data'] = []
-            st.session_state['missing_log'] = []
             
             domestic_cache = {}
             has_cups = any(c in ['UCL','UEL','UECL'] for c in final_selection_codes)
+            leagues_to_load = [k for k in ALL_LEAGUES.keys() if k not in ['UCL','UEL','UECL']] if has_cups else [k for k in final_selection_codes if k not in ['UCL','UEL','UECL']]
             
-            leagues_to_load = []
-            if has_cups:
-                leagues_to_load = [k for k in ALL_LEAGUES.keys() if k not in ['UCL','UEL','UECL']]
-            else:
-                leagues_to_load = [k for k in final_selection_codes if k not in ['UCL','UEL','UECL']]
-                
             status = st.empty()
             status.text("Caricamento database statistici...")
-            for idx, code in enumerate(leagues_to_load):
-                domestic_cache[code] = scarica_dati(code)
+            for idx, code in enumerate(leagues_to_load): domestic_cache[code] = scarica_dati(code)
                 
             progress = st.progress(0)
             total_steps = len(final_selection_codes)
@@ -524,7 +500,6 @@ with tab_main:
                 league_name = ALL_LEAGUES.get(code, code)
                 status.text(f"Analisi: {league_name}...")
                 
-                # Inizializza lista per lega
                 if league_name not in st.session_state['results_data']:
                     st.session_state['results_data'][league_name] = []
                 
@@ -550,155 +525,105 @@ with tab_main:
                                         elif o['name'] == 'Draw': qX_b = o['price']
                                         elif o['name'] == a_raw: q2_b = o['price']
                         
-                        # Missing Data
                         if h_data is None or a_data is None:
-                            if h_data is None: st.session_state['missing_log'].append(f"LEGA {code}: '{h_raw}' -> Missing")
-                            if a_data is None: st.session_state['missing_log'].append(f"LEGA {code}: '{a_raw}' -> Missing")
                             html_err = generate_missing_data_terminal(h_team, a_team, (h_data is not None), (a_data is not None), {'1':q1_b,'X':qX_b,'2':q2_b})
-                            
-                            item_err = {
-                                'label': f"⚠️ {fmt_date_str} | {h_team} vs {a_team} ({code})",
-                                'html': html_err,
-                                'raw_date': raw_date_obj
-                            }
+                            item_err = {'label': f"⚠️ {fmt_date_str} | {h_team} vs {a_team} ({code})", 'html': html_err, 'raw_date': raw_date_obj}
                             st.session_state['results_data'][league_name].append(item_err)
                             st.session_state['calendar_data'].append(item_err)
                             continue
 
-                        # Matrix Calc
+                        # Matrix
                         exp_data = {} 
                         metrics = ['Goals', 'Shots', 'Corn', 'Fouls', 'Cards']
                         for met in metrics:
-                            h_att_r = h_data[f'W_{met}_Att']
-                            h_def_r = h_data[f'W_{met}_Def']
-                            h_lea_avg_h = h_avgs[f'{met}_H']
+                            h_att_r = h_data[f'W_{met}_Att']; h_def_r = h_data[f'W_{met}_Def']; h_lea_avg_h = h_avgs[f'{met}_H']
+                            a_att_r = a_data[f'W_{met}_Att']; a_def_r = a_data[f'W_{met}_Def']; a_lea_avg_a = a_avgs[f'{met}_A']
                             
-                            a_att_r = a_data[f'W_{met}_Att']
-                            a_def_r = a_data[f'W_{met}_Def']
-                            a_lea_avg_a = a_avgs[f'{met}_A']
+                            f_h_coeff = h_coeff if code in ['UCL', 'UEL', 'UECL'] else 1.0
+                            f_a_coeff = a_coeff if code in ['UCL', 'UEL', 'UECL'] else 1.0
                             
-                            if code in ['UCL', 'UEL', 'UECL']:
-                                final_h_coeff = h_coeff
-                                final_a_coeff = a_coeff
-                            else:
-                                final_h_coeff = 1.0
-                                final_a_coeff = 1.0
-                            
-                            val_h = h_att_r * a_def_r * h_lea_avg_h * final_h_coeff
-                            val_a = a_att_r * h_def_r * a_lea_avg_a * final_a_coeff
+                            val_h = h_att_r * a_def_r * h_lea_avg_h * f_h_coeff
+                            val_a = a_att_r * h_def_r * a_lea_avg_a * f_a_coeff
                             exp_data[met] = (val_h, val_a)
 
                         if q1_b == 0: continue
                         my_q1, my_qX, my_q2 = calcola_1x2_dixon_coles(exp_data['Goals'][0], exp_data['Goals'][1])
                         roi_1 = ((1/my_q1)*q1_b)-1; roi_X = ((1/my_qX)*qX_b)-1; roi_2 = ((1/my_q2)*q2_b)-1
                         
+                        # --- AUTO SNIPER LOGIC ---
+                        # Controlla se c'è un TOP value su 1X2 e salva
+                        segni_check = [('1', roi_1, q1_b, 1/my_q1), ('X', roi_X, qX_b, 1/my_qX), ('2', roi_2, q2_b, 1/my_q2)]
+                        for s_lbl, s_roi, s_odd, s_prob in segni_check:
+                            # CRITERIO TOP: ROI >= 15%, QUOTA <= 4.0, PROB >= MIN_PROB (Slider)
+                            if s_roi >= 0.15 and s_odd <= 4.0 and s_prob >= min_prob_val:
+                                stake = calculate_kelly_stake(bankroll_input, s_odd, s_prob)
+                                save_bet_to_csv(raw_date_obj, league_name, f"{h_team} vs {a_team}", s_lbl, s_odd, stake, raw_date_obj)
+                        # -------------------------
+
                         html_block = generate_complete_terminal(
                             h_team, a_team, exp_data, 
                             {'1':q1_b,'X':qX_b,'2':q2_b}, {'1':roi_1,'X':roi_X,'2':roi_2},
-                            min_prob_val, h_data['Date'], a_data['Date'], bankroll_input, h_form, a_form,
-                            league_name, raw_date_obj
+                            min_prob_val, h_data['Date'], a_data['Date'], bankroll_input, h_form, a_form
                         )
                         
-                        item_ok = {
-                            'label': f"✅ {fmt_date_str} | {h_team} vs {a_team} ({code})",
-                            'html': html_block,
-                            'raw_date': raw_date_obj,
-                            'meta': {'h': h_team, 'a': a_team, 'lg': league_name, 'q': {'1':q1_b, 'X':qX_b, '2':q2_b}}
-                        }
+                        item_ok = {'label': f"✅ {fmt_date_str} | {h_team} vs {a_team} ({code})", 'html': html_block, 'raw_date': raw_date_obj}
                         st.session_state['results_data'][league_name].append(item_ok)
                         st.session_state['calendar_data'].append(item_ok)
 
             status.empty()
-            st.success("Analisi Completata.")
+            st.success("Analisi Completata. Le giocate TOP sono state salvate nel Registro!")
 
-    # RENDER RESULTS FROM SESSION STATE
     if st.session_state['results_data']:
         active_leagues = [l for l in st.session_state['results_data'] if st.session_state['results_data'][l]]
         if active_leagues:
             tabs = st.tabs(active_leagues)
             for i, l in enumerate(active_leagues):
                 with tabs[i]:
-                    for idx, m in enumerate(st.session_state['results_data'][l]):
-                        with st.expander(m['label']):
-                            st.markdown(m['html'], unsafe_allow_html=True)
-                            
-                            # CUSTOM BET BUILDER (Solo se dati ok)
-                            if 'meta' in m:
-                                st.markdown("---")
-                                st.markdown("📝 **Crea la tua Giocata:**")
-                                c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
-                                mid = f"{l}_{idx}_{m['meta']['h']}"
-                                
-                                outcomes = ["1", "X", "2", "Ov 1.5", "Un 1.5", "Ov 2.5", "Un 2.5", "Gol", "NoGol", "1X", "X2"]
-                                user_bet = c1.selectbox("Esito", outcomes, key=f"bet_{mid}")
-                                
-                                def_odd = 2.0
-                                if user_bet == '1': def_odd = m['meta']['q']['1']
-                                elif user_bet == 'X': def_odd = m['meta']['q']['X']
-                                elif user_bet == '2': def_odd = m['meta']['q']['2']
-                                
-                                user_odd = c2.number_input("Quota", value=def_odd, step=0.01, key=f"odd_{mid}")
-                                user_stake = c3.number_input("€", value=2.0, step=0.5, key=f"stk_{mid}")
-                                
-                                if c4.button("💾", key=f"btn_{mid}"):
-                                    save_bet_to_csv(m['raw_date'], l, f"{m['meta']['h']} vs {m['meta']['a']}", user_bet, user_odd, user_stake, m['raw_date'])
-                                    st.toast("Salvato!")
-        else:
-            st.write("Nessun risultato trovato.")
+                    for m in st.session_state['results_data'][l]:
+                        with st.expander(m['label']): st.markdown(m['html'], unsafe_allow_html=True)
+        else: st.write("Nessun risultato.")
 
-# TAB CALENDARIO (FROM SESSION STATE)
+# TAB CALENDARIO
 with tab_cal:
-    st.markdown("### 📅 Calendario Partite")
+    st.markdown("### 📅 Calendario")
     if st.session_state['calendar_data']:
         unique_dates = sorted(list(set([x['raw_date'] for x in st.session_state['calendar_data']])))
         if unique_dates:
             selected_date = st.date_input("Seleziona Data:", value=unique_dates[0], min_value=unique_dates[0])
             daily_matches = [x for x in st.session_state['calendar_data'] if x['raw_date'] == selected_date]
-            
             if daily_matches:
-                st.info(f"Trovate {len(daily_matches)} partite per il {selected_date.strftime('%d/%m')}")
                 for dm in daily_matches:
-                    with st.expander(dm['label']):
-                        st.markdown(dm['html'], unsafe_allow_html=True)
-            else: st.warning("Nessuna partita in questa data.")
-    else: st.info("Nessun dato. Lancia l'analisi.")
+                    with st.expander(dm['label']): st.markdown(dm['html'], unsafe_allow_html=True)
+            else: st.warning("Nessuna partita.")
+    else: st.info("Nessun dato.")
 
 # TAB TRACKER
 with tab_tracker:
-    st.markdown("### 📊 Registro Giocate & Bilancio")
+    st.markdown("### 📊 Registro Giocate Automatico")
     pf = load_portfolio()
-    
     if pf.empty:
-        st.info("Registro vuoto.")
+        st.info("Nessuna giocata TOP trovata finora.")
     else:
         if st.button("🔄 AGGIORNA RISULTATI"):
-            with st.spinner("Grading in corso..."):
+            with st.spinner("Grading..."):
                 domestic_cache = {}
                 for k in ALL_LEAGUES.keys(): 
                     if k not in ['UCL','UEL','UECL']: domestic_cache[k] = scarica_dati(k)
                 pf = check_results_automatic(pf, domestic_cache)
-                st.success("Aggiornato!")
+                st.success("Fatto!")
         
-        wins = len(pf[pf['Result'] == 'WIN'])
-        losses = len(pf[pf['Result'] == 'LOSS'])
-        profit = pf['Profit'].sum()
-        roi = (profit / pf['Stake'].sum() * 100) if pf['Stake'].sum() > 0 else 0
+        wins = len(pf[pf['Result'] == 'WIN']); losses = len(pf[pf['Result'] == 'LOSS'])
+        profit = pf['Profit'].sum(); roi = (profit / pf['Stake'].sum() * 100) if pf['Stake'].sum() > 0 else 0
         
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Totale", len(pf))
-        m2.metric("W/L", f"{wins}/{losses}")
-        m3.metric("Profitto", f"€ {profit:.2f}", delta_color="normal")
-        m4.metric("ROI", f"{roi:.1f}%")
+        m1.metric("Giocate", len(pf)); m2.metric("W/L", f"{wins}/{losses}")
+        m3.metric("Profitto", f"€ {profit:.2f}"); m4.metric("ROI", f"{roi:.1f}%")
         
         def color_result(val):
             color = 'white'
             if val == 'WIN': color = '#50FA7B'
             elif val == 'LOSS': color = '#FF5555'
             return f'color: {color}; font-weight: bold'
-
         st.dataframe(pf.style.applymap(color_result, subset=['Result']), use_container_width=True)
-        
         if st.button("🗑️ RESET"):
-            if os.path.exists(TRACKER_FILE):
-                os.remove(TRACKER_FILE)
-                st.rerun()
+            if os.path.exists(TRACKER_FILE): os.remove(TRACKER_FILE); st.rerun()
