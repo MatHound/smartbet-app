@@ -32,11 +32,16 @@ st.markdown("""
     .win-tag { background-color: #006400; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
     .loss-tag { background-color: #8B0000; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
     .pending-tag { background-color: #555; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-    
-    /* Stile per il Bet Builder */
-    .bet-builder-box { background-color: #f0f2f6; padding: 10px; border-radius: 5px; margin-top: 5px; border: 1px solid #ddd; }
 </style>
 """, unsafe_allow_html=True)
+
+# --- INIZIALIZZAZIONE SESSION STATE (MEMORIA) ---
+if 'results_data' not in st.session_state:
+    st.session_state['results_data'] = {}
+if 'calendar_data' not in st.session_state:
+    st.session_state['calendar_data'] = []
+if 'missing_log' not in st.session_state:
+    st.session_state['missing_log'] = []
 
 # --- DATABASE LEGHE ---
 LEAGUE_GROUPS = {
@@ -184,7 +189,7 @@ TEAM_MAPPING = {
 }
 
 # ==============================================================================
-# 2. FUNZIONI CORE (DATA & TRACKER)
+# 2. FUNZIONI CORE
 # ==============================================================================
 
 def parse_date(iso_date_str):
@@ -291,6 +296,7 @@ def scarica_dati(codice_lega):
         for m in metrics:
             full_df[f'{m}_Att_Rat'] = np.where(full_df['IsHome']==1, full_df[f'{m}_For']/avgs[f'{m}_H'], full_df[f'{m}_For']/avgs[f'{m}_A'])
             full_df[f'{m}_Def_Rat'] = np.where(full_df['IsHome']==1, full_df[f'{m}_Ag']/avgs[f'{m}_A'], full_df[f'{m}_Ag']/avgs[f'{m}_H'])
+            
             full_df[f'W_{m}_Att'] = full_df.groupby('Team')[f'{m}_Att_Rat'].transform(lambda x: x.ewm(span=5, min_periods=1).mean())
             full_df[f'W_{m}_Def'] = full_df.groupby('Team')[f'{m}_Def_Rat'].transform(lambda x: x.ewm(span=5, min_periods=1).mean())
 
@@ -311,7 +317,8 @@ def calculate_kelly_stake(bankroll, odds, probability, fraction=0.3):
 def calcola_1x2_dixon_coles(lam_h, lam_a):
     mat = np.zeros((6,6))
     for i in range(6):
-        for j in range(6): mat[i,j] = poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
+        for j in range(6):
+            mat[i,j] = poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
     rho = 0.13
     mat[0,0] *= (1 - (lam_h * lam_a * rho)); mat[0,1] *= (1 + (lam_h * rho))
     mat[1,0] *= (1 + (lam_a * rho)); mat[1,1] *= (1 - rho)
@@ -389,6 +396,7 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
             fav_str = f"OSP ({pa*100:.0f}%)"
             if pa >= min_prob: fav_str = f"<span class='term-green'>{fav_str}</span>"
             else: fav_str = f"<span class='term-dim'>{fav_str}</span>"
+        
         val_h, val_a = exp_data[key]
         html += f"{label:<10}: {fav_str}  [Exp: {val_h:.1f} vs {val_a:.1f}]\n"
 
@@ -461,7 +469,7 @@ with st.sidebar:
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
     inspect_csv_mode = st.checkbox("🔍 ISPEZIONA NOMI CSV", value=False)
 
-st.title("SmartBet Pro 48.1 - Custom Tracker")
+st.title("SmartBet Pro 2026 - Custom Tracker")
 st.caption("Custom Bet Manager + 3 Tabs Layout")
 
 # TABS PRINCIPALI
@@ -489,8 +497,10 @@ with tab_main:
         if not api_key_input: st.error("Inserisci API Key!")
         elif not final_selection_codes: st.error("Seleziona almeno una lega!")
         else:
-            global_calendar_data = [] 
-            missing_teams_log = [] 
+            # Pulisci session state per nuova ricerca
+            st.session_state['results_data'] = {}
+            st.session_state['calendar_data'] = []
+            st.session_state['missing_log'] = []
             
             domestic_cache = {}
             has_cups = any(c in ['UCL','UEL','UECL'] for c in final_selection_codes)
@@ -514,11 +524,13 @@ with tab_main:
                 league_name = ALL_LEAGUES.get(code, code)
                 status.text(f"Analisi: {league_name}...")
                 
+                # Inizializza lista per lega
+                if league_name not in st.session_state['results_data']:
+                    st.session_state['results_data'][league_name] = []
+                
                 matches = get_live_matches(api_key_input, API_MAPPING.get(code, ''))
                 
-                # Check se ci sono partite
                 if matches:
-                    st.subheader(f"{league_name}")
                     for m in matches:
                         if 'home_team' not in m: continue
                         h_raw, a_raw = m['home_team'], m['away_team']
@@ -538,20 +550,22 @@ with tab_main:
                                         elif o['name'] == 'Draw': qX_b = o['price']
                                         elif o['name'] == a_raw: q2_b = o['price']
                         
-                        # Logica Missing
+                        # Missing Data
                         if h_data is None or a_data is None:
-                            if h_data is None: missing_teams_log.append(f"LEGA {code}: '{h_raw}' -> Missing")
-                            if a_data is None: missing_teams_log.append(f"LEGA {code}: '{a_raw}' -> Missing")
+                            if h_data is None: st.session_state['missing_log'].append(f"LEGA {code}: '{h_raw}' -> Missing")
+                            if a_data is None: st.session_state['missing_log'].append(f"LEGA {code}: '{a_raw}' -> Missing")
                             html_err = generate_missing_data_terminal(h_team, a_team, (h_data is not None), (a_data is not None), {'1':q1_b,'X':qX_b,'2':q2_b})
                             
-                            # Aggiungi a calendario (anche se missing)
-                            global_calendar_data.append({'date': raw_date_obj, 'label': f"⚠️ {fmt_date_str} | {h_team} vs {a_team} ({code})", 'html': html_err})
-                            
-                            with st.expander(f"⚠️ {fmt_date_str} | {h_team} vs {a_team}"):
-                                st.markdown(html_err, unsafe_allow_html=True)
+                            item_err = {
+                                'label': f"⚠️ {fmt_date_str} | {h_team} vs {a_team} ({code})",
+                                'html': html_err,
+                                'raw_date': raw_date_obj
+                            }
+                            st.session_state['results_data'][league_name].append(item_err)
+                            st.session_state['calendar_data'].append(item_err)
                             continue
 
-                        # Calcolo Matrix
+                        # Matrix Calc
                         exp_data = {} 
                         metrics = ['Goals', 'Shots', 'Corn', 'Fouls', 'Cards']
                         for met in metrics:
@@ -585,103 +599,96 @@ with tab_main:
                             league_name, raw_date_obj
                         )
                         
-                        # Add to Calendar
-                        global_calendar_data.append({'date': raw_date_obj, 'label': f"✅ {fmt_date_str} | {h_team} vs {a_team} ({code})", 'html': html_block})
-                        
-                        # Render Expander
-                        with st.expander(f"✅ {fmt_date_str} | {h_team} vs {a_team}"):
-                            st.markdown(html_block, unsafe_allow_html=True)
-                            
-                            # CUSTOM BET BUILDER
-                            st.markdown("---")
-                            st.markdown("📝 **Crea la tua Giocata:**")
-                            
-                            bb_col1, bb_col2, bb_col3, bb_col4 = st.columns([2, 1, 1, 1])
-                            
-                            # ID Unico
-                            mid = f"{code}_{h_team}_{a_team}"
-                            
-                            # Lista Esiti Comuni
-                            common_outcomes = [
-                                "1", "X", "2", 
-                                "Over 1.5", "Under 1.5", 
-                                "Over 2.5", "Under 2.5",
-                                "Gol (GG)", "No Gol (NG)",
-                                "1X", "X2", "12",
-                                "Casa Over 1.5", "Ospite Over 1.5"
-                            ]
-                            
-                            user_bet = bb_col1.selectbox("Esito", common_outcomes, key=f"bet_{mid}")
-                            
-                            # Auto-fill quota (solo se 1X2)
-                            def_odd = 2.0
-                            if user_bet == '1': def_odd = q1_b
-                            elif user_bet == 'X': def_odd = qX_b
-                            elif user_bet == '2': def_odd = q2_b
-                            
-                            user_odd = bb_col2.number_input("Quota", value=def_odd, step=0.01, key=f"odd_{mid}")
-                            user_stake = bb_col3.number_input("€", value=2.0, step=0.5, key=f"stk_{mid}")
-                            
-                            if bb_col4.button("💾 Salva", key=f"btn_{mid}"):
-                                save_bet_to_csv(raw_date_obj, league_name, f"{h_team} vs {a_team}", user_bet, user_odd, user_stake, raw_date_obj)
-                                st.toast(f"Salvato nel Registro: {h_team} vs {a_team} - {user_bet}")
+                        item_ok = {
+                            'label': f"✅ {fmt_date_str} | {h_team} vs {a_team} ({code})",
+                            'html': html_block,
+                            'raw_date': raw_date_obj,
+                            'meta': {'h': h_team, 'a': a_team, 'lg': league_name, 'q': {'1':q1_b, 'X':qX_b, '2':q2_b}}
+                        }
+                        st.session_state['results_data'][league_name].append(item_ok)
+                        st.session_state['calendar_data'].append(item_ok)
 
             status.empty()
             st.success("Analisi Completata.")
 
-# TAB CALENDARIO
+    # RENDER RESULTS FROM SESSION STATE
+    if st.session_state['results_data']:
+        active_leagues = [l for l in st.session_state['results_data'] if st.session_state['results_data'][l]]
+        if active_leagues:
+            tabs = st.tabs(active_leagues)
+            for i, l in enumerate(active_leagues):
+                with tabs[i]:
+                    for idx, m in enumerate(st.session_state['results_data'][l]):
+                        with st.expander(m['label']):
+                            st.markdown(m['html'], unsafe_allow_html=True)
+                            
+                            # CUSTOM BET BUILDER (Solo se dati ok)
+                            if 'meta' in m:
+                                st.markdown("---")
+                                st.markdown("📝 **Crea la tua Giocata:**")
+                                c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
+                                mid = f"{l}_{idx}_{m['meta']['h']}"
+                                
+                                outcomes = ["1", "X", "2", "Ov 1.5", "Un 1.5", "Ov 2.5", "Un 2.5", "Gol", "NoGol", "1X", "X2"]
+                                user_bet = c1.selectbox("Esito", outcomes, key=f"bet_{mid}")
+                                
+                                def_odd = 2.0
+                                if user_bet == '1': def_odd = m['meta']['q']['1']
+                                elif user_bet == 'X': def_odd = m['meta']['q']['X']
+                                elif user_bet == '2': def_odd = m['meta']['q']['2']
+                                
+                                user_odd = c2.number_input("Quota", value=def_odd, step=0.01, key=f"odd_{mid}")
+                                user_stake = c3.number_input("€", value=2.0, step=0.5, key=f"stk_{mid}")
+                                
+                                if c4.button("💾", key=f"btn_{mid}"):
+                                    save_bet_to_csv(m['raw_date'], l, f"{m['meta']['h']} vs {m['meta']['a']}", user_bet, user_odd, user_stake, m['raw_date'])
+                                    st.toast("Salvato!")
+        else:
+            st.write("Nessun risultato trovato.")
+
+# TAB CALENDARIO (FROM SESSION STATE)
 with tab_cal:
     st.markdown("### 📅 Calendario Partite")
-    if global_calendar_data:
-        # Estrai date uniche
-        unique_dates = sorted(list(set([x['date'] for x in global_calendar_data])))
-        
+    if st.session_state['calendar_data']:
+        unique_dates = sorted(list(set([x['raw_date'] for x in st.session_state['calendar_data']])))
         if unique_dates:
             selected_date = st.date_input("Seleziona Data:", value=unique_dates[0], min_value=unique_dates[0])
-            
-            # Filtra
-            daily_matches = [x for x in global_calendar_data if x['date'] == selected_date]
+            daily_matches = [x for x in st.session_state['calendar_data'] if x['raw_date'] == selected_date]
             
             if daily_matches:
                 st.info(f"Trovate {len(daily_matches)} partite per il {selected_date.strftime('%d/%m')}")
                 for dm in daily_matches:
                     with st.expander(dm['label']):
                         st.markdown(dm['html'], unsafe_allow_html=True)
-            else:
-                st.warning("Nessuna partita in questa data.")
-    else:
-        st.info("Nessun dato disponibile. Lancia prima una ricerca nel Tab 'Analisi'.")
+            else: st.warning("Nessuna partita in questa data.")
+    else: st.info("Nessun dato. Lancia l'analisi.")
 
 # TAB TRACKER
 with tab_tracker:
     st.markdown("### 📊 Registro Giocate & Bilancio")
-    
     pf = load_portfolio()
     
     if pf.empty:
-        st.info("Nessuna giocata registrata. Vai nel Tab 'Analisi' e salva qualche pronostico!")
+        st.info("Registro vuoto.")
     else:
-        if st.button("🔄 AGGIORNA RISULTATI (Controlla CSV)"):
-            with st.spinner("Scaricamento risultati e grading..."):
+        if st.button("🔄 AGGIORNA RISULTATI"):
+            with st.spinner("Grading in corso..."):
                 domestic_cache = {}
-                # Ricarica tutto per sicurezza
                 for k in ALL_LEAGUES.keys(): 
                     if k not in ['UCL','UEL','UECL']: domestic_cache[k] = scarica_dati(k)
-                
                 pf = check_results_automatic(pf, domestic_cache)
-                st.success("Aggiornamento completato!")
+                st.success("Aggiornato!")
         
         wins = len(pf[pf['Result'] == 'WIN'])
         losses = len(pf[pf['Result'] == 'LOSS'])
-        pending = len(pf[pf['Result'] == 'Pending'])
         profit = pf['Profit'].sum()
         roi = (profit / pf['Stake'].sum() * 100) if pf['Stake'].sum() > 0 else 0
         
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Totale Giocate", len(pf))
-        m2.metric("W / L / P", f"{wins} / {losses} / {pending}")
-        m3.metric("Profitto Netto", f"€ {profit:.2f}", delta_color="normal")
-        m4.metric("ROI %", f"{roi:.1f}%")
+        m1.metric("Totale", len(pf))
+        m2.metric("W/L", f"{wins}/{losses}")
+        m3.metric("Profitto", f"€ {profit:.2f}", delta_color="normal")
+        m4.metric("ROI", f"{roi:.1f}%")
         
         def color_result(val):
             color = 'white'
@@ -691,7 +698,7 @@ with tab_tracker:
 
         st.dataframe(pf.style.applymap(color_result, subset=['Result']), use_container_width=True)
         
-        if st.button("🗑️ CANCELLA TUTTO IL REGISTRO"):
+        if st.button("🗑️ RESET"):
             if os.path.exists(TRACKER_FILE):
                 os.remove(TRACKER_FILE)
                 st.rerun()
