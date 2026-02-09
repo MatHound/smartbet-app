@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE E COSTANTI
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Tracker", page_icon="📝", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 2026", page_icon="📝", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -32,10 +32,13 @@ st.markdown("""
     .win-tag { background-color: #006400; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
     .loss-tag { background-color: #8B0000; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
     .pending-tag { background-color: #555; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+    
+    /* Stile per il Bet Builder */
+    .bet-builder-box { background-color: #f0f2f6; padding: 10px; border-radius: 5px; margin-top: 5px; border: 1px solid #ddd; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- DATABASE ---
+# --- DATABASE LEGHE ---
 LEAGUE_GROUPS = {
     "🇪🇺 Coppe Europee": ['UCL', 'UEL', 'UECL'],
     "🏆 Top 5 (Tier 1)": ['I1', 'E0', 'SP1', 'D1', 'F1'],
@@ -71,6 +74,7 @@ LEAGUE_COEFF = {
     'D2': 0.65, 'I2': 0.60, 'SP2': 0.60, 'E2': 0.55
 }
 
+# --- MEGA MAPPING 46.3 ---
 TEAM_MAPPING = {
     'Austria Wien': 'Austria Vienna', 'FC Blau-Weiß Linz': 'BW Linz', 'Grazer AK': 'GAK',
     'Hartberg': 'Hartberg', 'LASK': 'LASK Linz', 'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
@@ -207,62 +211,40 @@ def save_bet_to_csv(date, league, match, bet, odds, stake, raw_date):
     df.to_csv(TRACKER_FILE, index=False)
 
 def check_results_automatic(portfolio_df, cache_dataframes):
-    """Controlla automaticamente se le partite nel portfolio sono finite"""
     updated = False
-    
     for idx, row in portfolio_df.iterrows():
-        if row['Result'] != 'Pending': continue # Già refertata
-        
-        # Check se la data è passata (Simple check)
+        if row['Result'] != 'Pending': continue
         match_date = pd.to_datetime(row['RawDate']).date()
-        if match_date > datetime.now().date(): continue # Partita nel futuro
+        if match_date > datetime.now().date(): continue
         
-        # Cerca la lega nel cache
-        # Nota: Qui serve un mapping League Name -> Code, proviamo a scansionare tutto
-        # Semplificazione: Cerchiamo la partita in tutti i DF scaricati
-        
-        found_match = False
         h_team_bet = row['Match'].split(" vs ")[0]
         
         for code, data_tuple in cache_dataframes.items():
             if data_tuple is None: continue
             df_full, df_orig, _ = data_tuple
-            
-            # Cerca nel df originale per data e team
-            # df_orig ha 'Date', 'HomeTeam', 'AwayTeam', 'FTHG', 'FTAG'
             match_row = df_orig[
                 (df_orig['Date'].dt.date == match_date) & 
-                ((df_orig['HomeTeam'] == TEAM_MAPPING.get(h_team_bet, h_team_bet)) | 
-                 (df_orig['HomeTeam'] == h_team_bet)) # Try direct name too
+                ((df_orig['HomeTeam'] == TEAM_MAPPING.get(h_team_bet, h_team_bet)) | (df_orig['HomeTeam'] == h_team_bet))
             ]
-            
             if not match_row.empty:
-                # PARTITA TROVATA E FINITA (SE HA FTHG)
                 res = match_row.iloc[0]
-                if pd.isna(res['FTHG']): continue # Non ancora giocata o rinviata
-                
-                hg = int(res['FTHG'])
-                ag = int(res['FTAG'])
-                
-                # LOGICA GRADING
+                if pd.isna(res['FTHG']): continue
+                hg = int(res['FTHG']); ag = int(res['FTAG'])
                 win = False
                 bet_type = row['Bet']
-                
                 if "Ov 1.5" in bet_type and (hg+ag) > 1.5: win = True
                 elif "Ov 2.5" in bet_type and (hg+ag) > 2.5: win = True
                 elif "1" in bet_type and hg > ag: win = True
                 elif "X" in bet_type and hg == ag: win = True
                 elif "2" in bet_type and ag > hg: win = True
                 elif "Gol" in bet_type and hg > 0 and ag > 0: win = True
-                # Aggiungi altre logiche se necessario
                 
                 portfolio_df.at[idx, 'Result'] = "WIN" if win else "LOSS"
                 portfolio_df.at[idx, 'Profit'] = (row['Stake'] * row['Odds'] - row['Stake']) if win else -row['Stake']
                 updated = True
                 break
     
-    if updated:
-        portfolio_df.to_csv(TRACKER_FILE, index=False)
+    if updated: portfolio_df.to_csv(TRACKER_FILE, index=False)
     return portfolio_df
 
 @st.cache_data(ttl=3600)
@@ -320,21 +302,16 @@ def get_live_matches(api_key, sport_key):
     try: return requests.get(url).json()
     except: return []
 
-# --- CALCOLI MATH ---
 def calculate_kelly_stake(bankroll, odds, probability, fraction=0.3):
     if odds <= 1 or probability <= 0: return 0.0
-    b = odds - 1
-    q = 1 - probability
+    b = odds - 1; q = 1 - probability
     f = (b * probability - q) / b
-    safe_f = max(0, f) * fraction 
-    stake = bankroll * safe_f
-    return round(stake, 2)
+    return round(bankroll * max(0, f) * fraction, 2)
 
 def calcola_1x2_dixon_coles(lam_h, lam_a):
     mat = np.zeros((6,6))
     for i in range(6):
-        for j in range(6):
-            mat[i,j] = poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
+        for j in range(6): mat[i,j] = poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
     rho = 0.13
     mat[0,0] *= (1 - (lam_h * lam_a * rho)); mat[0,1] *= (1 + (lam_h * rho))
     mat[1,0] *= (1 + (lam_a * rho)); mat[1,1] *= (1 - rho)
@@ -361,6 +338,14 @@ def find_team_stats_global(team_name, cache_dataframes):
             return last_row, coeff, averages, form_str, league_code
     return None, 0, None, "N/A", "N/A"
 
+def generate_missing_data_terminal(h_team, a_team, h_found, a_found, bookie_odds):
+    html = f"""<div class='terminal-missing'>"""
+    html += f"<span style='color:#FF5555; font-weight:bold;'>[ ! ] DATI INSUFFICIENTI: {h_team} vs {a_team}</span>\n"
+    if not h_found: html += f"❌ Missing: {h_team}\n"
+    if not a_found: html += f"❌ Missing: {a_team}\n"
+    html += f"\nODDS: 1:{bookie_odds['1']:.2f} X:{bookie_odds['X']:.2f} 2:{bookie_odds['2']:.2f}</div>"
+    return html
+
 def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_prob, last_date_h, last_date_a, bankroll, h_form, a_form, league_name, raw_date_obj):
     html = f"""<div class='terminal-box'>"""
     
@@ -376,10 +361,6 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
     html += "-"*60 + "\n"
     segni = [('1', roi_1x2['1'], odds_1x2['1']), ('X', roi_1x2['X'], odds_1x2['X']), ('2', roi_1x2['2'], odds_1x2['2'])]
     
-    # Per il salvataggio
-    best_bet = None
-    best_roi = 0
-    
     for segno, roi, book_q in segni:
         my_q = book_q / (roi + 1) if (roi+1) > 0 else 99.0
         prob = 1/my_q if my_q > 0 else 0
@@ -388,10 +369,8 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
         if book_q == 0: val_str="ERR"
         elif roi >= 0.15 and book_q <= 4.0 and prob >= min_prob: 
             val_str = f"<span class='term-val'>{roi*100:+.0f}% (TOP)</span>"
-            if roi > best_roi: best_bet = (segno, book_q, stake)
         elif roi > 0 and prob >= min_prob: 
             val_str = f"<span class='term-green'>{roi*100:+.0f}%</span>"
-            if roi > best_roi: best_bet = (segno, book_q, stake)
         else: val_str = f"<span class='term-dim'>{roi*100:+.0f}%</span>"
         
         stake_str = f"<span class='term-money'>€ {stake:.2f}</span>" if stake > 0 else "-"
@@ -426,6 +405,7 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
         html += f"\n<span class='term-section'>[ {label} DETTAGLIO ]</span>\n"
         html += f"{'LINEA':<15} | {'PROB %':<8} | {'QUOTA'}\n"
         html += "-"*40 + "\n"
+        
         def add_rows(prefix, r, exp):
             rows_html = ""
             for l in r:
@@ -435,6 +415,7 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
                 if p >= min_prob: rows_html += f"<span class='term-green'>{row_str}</span>\n"
                 else: rows_html += f"<span class='term-dim'>{row_str}</span>\n"
             return rows_html
+            
         html += add_rows("CASA", r_h, eh)
         html += add_rows("OSP", r_a, ea)
         html += add_rows("TOT", r_tot, eh+ea)
@@ -480,11 +461,11 @@ with st.sidebar:
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
     inspect_csv_mode = st.checkbox("🔍 ISPEZIONA NOMI CSV", value=False)
 
-st.title("SmartBet Pro 48 - Tracker Edition")
-st.caption("Tracker di Performance Integrato + Auto-Grading")
+st.title("SmartBet Pro 48.1 - Custom Tracker")
+st.caption("Custom Bet Manager + 3 Tabs Layout")
 
 # TABS PRINCIPALI
-tab_main, tab_tracker = st.tabs(["🚀 ANALISI MATCH", "💰 REGISTRO & BILANCIO"])
+tab_main, tab_cal, tab_tracker = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO", "💰 REGISTRO"])
 
 with tab_main:
     start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
@@ -508,7 +489,6 @@ with tab_main:
         if not api_key_input: st.error("Inserisci API Key!")
         elif not final_selection_codes: st.error("Seleziona almeno una lega!")
         else:
-            results_by_league = {}
             global_calendar_data = [] 
             missing_teams_log = [] 
             
@@ -533,11 +513,12 @@ with tab_main:
                 progress.progress((idx+1)/total_steps)
                 league_name = ALL_LEAGUES.get(code, code)
                 status.text(f"Analisi: {league_name}...")
-                if league_name not in results_by_league: results_by_league[league_name] = []
                 
                 matches = get_live_matches(api_key_input, API_MAPPING.get(code, ''))
                 
+                # Check se ci sono partite
                 if matches:
+                    st.subheader(f"{league_name}")
                     for m in matches:
                         if 'home_team' not in m: continue
                         h_raw, a_raw = m['home_team'], m['away_team']
@@ -557,10 +538,20 @@ with tab_main:
                                         elif o['name'] == 'Draw': qX_b = o['price']
                                         elif o['name'] == a_raw: q2_b = o['price']
                         
+                        # Logica Missing
                         if h_data is None or a_data is None:
-                            # (Missing logic omitted for brevity in final fix, assuming it's same as 46.3)
+                            if h_data is None: missing_teams_log.append(f"LEGA {code}: '{h_raw}' -> Missing")
+                            if a_data is None: missing_teams_log.append(f"LEGA {code}: '{a_raw}' -> Missing")
+                            html_err = generate_missing_data_terminal(h_team, a_team, (h_data is not None), (a_data is not None), {'1':q1_b,'X':qX_b,'2':q2_b})
+                            
+                            # Aggiungi a calendario (anche se missing)
+                            global_calendar_data.append({'date': raw_date_obj, 'label': f"⚠️ {fmt_date_str} | {h_team} vs {a_team} ({code})", 'html': html_err})
+                            
+                            with st.expander(f"⚠️ {fmt_date_str} | {h_team} vs {a_team}"):
+                                st.markdown(html_err, unsafe_allow_html=True)
                             continue
 
+                        # Calcolo Matrix
                         exp_data = {} 
                         metrics = ['Goals', 'Shots', 'Corn', 'Fouls', 'Cards']
                         for met in metrics:
@@ -594,76 +585,92 @@ with tab_main:
                             league_name, raw_date_obj
                         )
                         
-                        # --- TASTI SALVATAGGIO ---
-                        # Generiamo chiavi uniche per i bottoni
-                        match_id = f"{h_team}_{a_team}_{raw_date_obj}"
+                        # Add to Calendar
+                        global_calendar_data.append({'date': raw_date_obj, 'label': f"✅ {fmt_date_str} | {h_team} vs {a_team} ({code})", 'html': html_block})
                         
-                        # SALVA 1X2 (Esempio per il favorito)
-                        # Nota: In streamlit dentro un loop bisogna usare colonne
-                        
-                        item = {
-                            'label': f"✅ {fmt_date_str} | {h_team} vs {a_team}", 
-                            'html': html_block,
-                            'match_info': (raw_date_obj, league_name, f"{h_team} vs {a_team}")
-                        }
-                        results_by_league[league_name].append(item)
+                        # Render Expander
+                        with st.expander(f"✅ {fmt_date_str} | {h_team} vs {a_team}"):
+                            st.markdown(html_block, unsafe_allow_html=True)
+                            
+                            # CUSTOM BET BUILDER
+                            st.markdown("---")
+                            st.markdown("📝 **Crea la tua Giocata:**")
+                            
+                            bb_col1, bb_col2, bb_col3, bb_col4 = st.columns([2, 1, 1, 1])
+                            
+                            # ID Unico
+                            mid = f"{code}_{h_team}_{a_team}"
+                            
+                            # Lista Esiti Comuni
+                            common_outcomes = [
+                                "1", "X", "2", 
+                                "Over 1.5", "Under 1.5", 
+                                "Over 2.5", "Under 2.5",
+                                "Gol (GG)", "No Gol (NG)",
+                                "1X", "X2", "12",
+                                "Casa Over 1.5", "Ospite Over 1.5"
+                            ]
+                            
+                            user_bet = bb_col1.selectbox("Esito", common_outcomes, key=f"bet_{mid}")
+                            
+                            # Auto-fill quota (solo se 1X2)
+                            def_odd = 2.0
+                            if user_bet == '1': def_odd = q1_b
+                            elif user_bet == 'X': def_odd = qX_b
+                            elif user_bet == '2': def_odd = q2_b
+                            
+                            user_odd = bb_col2.number_input("Quota", value=def_odd, step=0.01, key=f"odd_{mid}")
+                            user_stake = bb_col3.number_input("€", value=2.0, step=0.5, key=f"stk_{mid}")
+                            
+                            if bb_col4.button("💾 Salva", key=f"btn_{mid}"):
+                                save_bet_to_csv(raw_date_obj, league_name, f"{h_team} vs {a_team}", user_bet, user_odd, user_stake, raw_date_obj)
+                                st.toast(f"Salvato nel Registro: {h_team} vs {a_team} - {user_bet}")
 
             status.empty()
             st.success("Analisi Completata.")
-            
-            # VISUALIZZAZIONE RISULTATI CON BOTTONI SALVATAGGIO
-            active = [l for l in results_by_league if results_by_league[l]]
-            if active:
-                tabs = st.tabs(active)
-                for i, l in enumerate(active):
-                    with tabs[i]:
-                        for idx, m in enumerate(results_by_league[l]):
-                            with st.expander(m['label']):
-                                st.markdown(m['html'], unsafe_allow_html=True)
-                                
-                                # SEZIONE SALVATAGGIO RAPIDO
-                                st.write("📝 **Salva Giocata nel Registro:**")
-                                c1, c2, c3, c4 = st.columns(4)
-                                date_obj, lg, match_name = m['match_info']
-                                
-                                # Bottoni (Esempi comuni)
-                                if c1.button("Salva 1", key=f"btn_1_{l}_{idx}"):
-                                    save_bet_to_csv(date_obj, lg, match_name, "1", 2.0, 2.0, date_obj) # Odds/Stake placeholder
-                                    st.toast(f"Salvato: {match_name} - 1")
-                                if c2.button("Salva Ov 1.5", key=f"btn_o15_{l}_{idx}"):
-                                    save_bet_to_csv(date_obj, lg, match_name, "Over 1.5", 1.30, 2.0, date_obj)
-                                    st.toast(f"Salvato: {match_name} - Over 1.5")
-                                if c3.button("Salva Ov 2.5", key=f"btn_o25_{l}_{idx}"):
-                                    save_bet_to_csv(date_obj, lg, match_name, "Over 2.5", 1.70, 2.0, date_obj)
-                                    st.toast(f"Salvato: {match_name} - Over 2.5")
-                                if c4.button("Salva Gol", key=f"btn_gol_{l}_{idx}"):
-                                    save_bet_to_csv(date_obj, lg, match_name, "Gol", 1.60, 2.0, date_obj)
-                                    st.toast(f"Salvato: {match_name} - Gol")
-                                    
-            else: st.write("Nessun risultato.")
 
+# TAB CALENDARIO
+with tab_cal:
+    st.markdown("### 📅 Calendario Partite")
+    if global_calendar_data:
+        # Estrai date uniche
+        unique_dates = sorted(list(set([x['date'] for x in global_calendar_data])))
+        
+        if unique_dates:
+            selected_date = st.date_input("Seleziona Data:", value=unique_dates[0], min_value=unique_dates[0])
+            
+            # Filtra
+            daily_matches = [x for x in global_calendar_data if x['date'] == selected_date]
+            
+            if daily_matches:
+                st.info(f"Trovate {len(daily_matches)} partite per il {selected_date.strftime('%d/%m')}")
+                for dm in daily_matches:
+                    with st.expander(dm['label']):
+                        st.markdown(dm['html'], unsafe_allow_html=True)
+            else:
+                st.warning("Nessuna partita in questa data.")
+    else:
+        st.info("Nessun dato disponibile. Lancia prima una ricerca nel Tab 'Analisi'.")
+
+# TAB TRACKER
 with tab_tracker:
     st.markdown("### 📊 Registro Giocate & Bilancio")
     
-    # 1. Carica Portfolio
     pf = load_portfolio()
     
     if pf.empty:
         st.info("Nessuna giocata registrata. Vai nel Tab 'Analisi' e salva qualche pronostico!")
     else:
-        # 2. Sezione Aggiornamento
         if st.button("🔄 AGGIORNA RISULTATI (Controlla CSV)"):
-            # Scarichiamo i dati necessari
             with st.spinner("Scaricamento risultati e grading..."):
-                # Ricarica tutto per sicurezza
                 domestic_cache = {}
+                # Ricarica tutto per sicurezza
                 for k in ALL_LEAGUES.keys(): 
                     if k not in ['UCL','UEL','UECL']: domestic_cache[k] = scarica_dati(k)
                 
                 pf = check_results_automatic(pf, domestic_cache)
                 st.success("Aggiornamento completato!")
         
-        # 3. Metriche
         wins = len(pf[pf['Result'] == 'WIN'])
         losses = len(pf[pf['Result'] == 'LOSS'])
         pending = len(pf[pf['Result'] == 'Pending'])
@@ -676,7 +683,6 @@ with tab_tracker:
         m3.metric("Profitto Netto", f"€ {profit:.2f}", delta_color="normal")
         m4.metric("ROI %", f"{roi:.1f}%")
         
-        # 4. Tabella (Styling)
         def color_result(val):
             color = 'white'
             if val == 'WIN': color = '#50FA7B'
@@ -685,7 +691,6 @@ with tab_tracker:
 
         st.dataframe(pf.style.applymap(color_result, subset=['Result']), use_container_width=True)
         
-        # 5. Reset
         if st.button("🗑️ CANCELLA TUTTO IL REGISTRO"):
             if os.path.exists(TRACKER_FILE):
                 os.remove(TRACKER_FILE)
