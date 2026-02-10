@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro 49.1", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 50", page_icon="💾", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -455,8 +455,8 @@ with st.sidebar:
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
     inspect_csv_mode = st.checkbox("🔍 ISPEZIONA NOMI CSV", value=False)
 
-st.title("SmartBet Auto-Sniper")
-st.caption("Auto-Saving Giocate TOP (1X2)")
+st.title("SmartBet Pro 50 - Cloud Safe")
+st.caption("Auto-Sniper + Backup Manuale")
 
 # TABS PRINCIPALI
 tab_main, tab_cal, tab_tracker = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO", "💰 REGISTRO"])
@@ -465,7 +465,7 @@ with tab_main:
     start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
 
     if inspect_csv_mode and api_key_input and final_selection_codes:
-        st.info("MODALITÀ ISPEZIONE ATTIVA: Sto scaricando i CSV per mostrarti i nomi reali...")
+        st.info("MODALITÀ ISPEZIONE ATTIVA...")
         domestic_cache = {}
         leagues_to_load = [k for k in final_selection_codes if k not in ['UCL','UEL','UECL']]
         if any(c in ['UCL','UEL','UECL'] for c in final_selection_codes):
@@ -578,7 +578,6 @@ with tab_main:
             status.empty()
             st.success("Analisi Completata. Le giocate TOP sono state salvate nel Registro!")
             
-            # Show debug if requested
             if show_mapping_errors and st.session_state['missing_log']:
                 st.warning(f"⚠️ Debug: {len(st.session_state['missing_log'])} squadre non trovate.")
                 st.text_area("📋 Copia questa lista:", value="\n".join(sorted(list(set(st.session_state['missing_log'])))), height=200)
@@ -610,12 +609,29 @@ with tab_cal:
 # TAB TRACKER
 with tab_tracker:
     st.markdown("### 📊 Registro Giocate Automatico")
+    
+    # SEZIONE UPLOAD/DOWNLOAD
+    c1, c2 = st.columns(2)
+    with c1:
+        # TASTO DOWNLOAD (SALVA SUL PC)
+        if os.path.exists(TRACKER_FILE):
+            with open(TRACKER_FILE, "rb") as f:
+                st.download_button("📥 SCARICA IL TUO REGISTRO (Backup)", f, file_name="smartbet_portfolio.csv", mime="text/csv")
+    with c2:
+        # TASTO UPLOAD (RIPRISTINA)
+        uploaded_file = st.file_uploader("📂 Carica vecchio registro (Ripristino)", type="csv")
+        if uploaded_file is not None:
+            try:
+                pd.read_csv(uploaded_file).to_csv(TRACKER_FILE, index=False)
+                st.success("Registro ripristinato con successo!")
+            except: st.error("File non valido.")
+
     pf = load_portfolio()
     if pf.empty:
         st.info("Nessuna giocata TOP trovata finora.")
     else:
-        if st.button("🔄 AGGIORNA RISULTATI"):
-            with st.spinner("Grading..."):
+        if st.button("🔄 AGGIORNA RISULTATI (Grading)"):
+            with st.spinner("Controllo risultati..."):
                 domestic_cache = {}
                 for k in ALL_LEAGUES.keys(): 
                     if k not in ['UCL','UEL','UECL']: domestic_cache[k] = scarica_dati(k)
@@ -635,5 +651,5 @@ with tab_tracker:
             elif val == 'LOSS': color = '#FF5555'
             return f'color: {color}; font-weight: bold'
         st.dataframe(pf.style.applymap(color_result, subset=['Result']), use_container_width=True)
-        if st.button("🗑️ RESET"):
+        if st.button("🗑️ RESET TOTALE"):
             if os.path.exists(TRACKER_FILE): os.remove(TRACKER_FILE); st.rerun()
