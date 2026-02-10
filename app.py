@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro 52", page_icon="👁️", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 52.1", page_icon="🛡️", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -124,13 +124,14 @@ TEAM_MAPPING = {
     'Bayern Munich': 'Bayern Munich', 'Bayer Leverkusen': 'Leverkusen', 'Borussia Dortmund': 'Dortmund',
     'Borussia Monchengladbach': "M'gladbach", '1. FC Köln': 'FC Koln', 'FSV Mainz 05': 'Mainz', 'Mainz 05': 'Mainz',
     'VfL Wolfsburg': 'Wolfsburg', 'TSG Hoffenheim': 'Hoffenheim', 'Werder Bremen': 'Werder Bremen', 'Augsburg': 'Augsburg',
-    'Hamburger SV': 'Hamburg', '1. FC Kaiserslautern': 'Kaiserslautern', '1. FC Magdeburg': 'Magdeburg', '1. FC Nürnberg': 'Nurnberg',
+    '1. FC Heidenheim': 'Heidenheim', 'Hamburger SV': 'Hamburg',
+    '1. FC Kaiserslautern': 'Kaiserslautern', '1. FC Magdeburg': 'Magdeburg', '1. FC Nürnberg': 'Nurnberg',
     'Arminia Bielefeld': 'Bielefeld', 'Dynamo Dresden': 'Dresden', 'Eintracht Braunschweig': 'Braunschweig',
     'FC Schalke 04': 'Schalke 04', 'Fortuna Düsseldorf': 'Fortuna Dusseldorf', 'Greuther Fürth': 'Greuther Furth',
     'Hannover 96': 'Hannover', 'Hertha Berlin': 'Hertha', 'Karlsruher SC': 'Karlsruhe',
-    'SC Paderborn': 'Paderborn', 'SV Darmstadt 98': 'Darmstadt',
+    'SC Paderborn': 'Paderborn', 'SC Preußen Münster': 'Preussen Munster', 'SV Darmstadt 98': 'Darmstadt',
     'Eintracht Frankfurt': 'Ein Frankfurt', 'VfB Stuttgart': 'Stuttgart', 'SC Freiburg': 'Freiburg',
-    'Athletic Bilbao': 'Ath Bilbao', 'Real Betis': 'Betis', 'Real Sociedad': 'Sociedad', 
+    'Atletico Madrid': 'Ath Madrid', 'Athletic Bilbao': 'Ath Bilbao', 'Real Betis': 'Betis', 'Real Sociedad': 'Sociedad', 
     'Rayo Vallecano': 'Vallecano', 'Alavés': 'Alaves', 'Cadiz CF': 'Cadiz', 
     'UD Las Palmas': 'Las Palmas', 'Real Valladolid': 'Valladolid', 'Leganés': 'Leganes', 'Girona FC': 'Girona',
     'CA Osasuna': 'Osasuna', 'Elche CF': 'Elche', 'Celta Vigo': 'Celta',
@@ -146,19 +147,34 @@ TEAM_MAPPING = {
     'NEC Nijmegen': 'Nijmegen', 'Go Ahead Eagles': 'Go Ahead Eagles', 'Fortuna Sittard': 'For Sittard', 
     'PEC Zwolle': 'Zwolle', 'Almere City': 'Almere City', 'RKC Waalwijk': 'Waalwijk', 
     'SC Heerenveen': 'Heerenveen', 'Heracles Almelo': 'Heracles',
-    'FC Twente Enschede': 'Twente', 'FC Volendam': 'Volendam', 'FC Zwolle': 'Zwolle', 'SC Telstar': 'Telstar', 'FC Utrecht': 'Utrecht',
+    'FC Twente Enschede': 'Twente', 'FC Volendam': 'Volendam', 'FC Zwolle': 'Zwolle', 'SC Telstar': 'Telstar',
+    'FC Utrecht': 'Utrecht',
     'Benfica': 'Benfica', 'FC Porto': 'Porto', 'Vitoria Guimaraes': 'Guimaraes',
     'Boavista FC': 'Boavista', 'Estoril Praia': 'Estoril', 'Casa Pia AC': 'Casa Pia',
     'Farense': 'Farense', 'Arouca': 'Arouca', 'Gil Vicente': 'Gil Vicente',
-    'Braga': 'Sp Braga', 'SC Braga': 'Sp Braga', 'CF Estrela': 'Estrela',
+    'AVS Futebol SAD': 'Avs', 'Braga': 'Sp Braga', 'SC Braga': 'Sp Braga', 'CF Estrela': 'Estrela',
     'Famalicão': 'Famalicao', 'Moreirense FC': 'Moreirense', 'Rio Ave FC': 'Rio Ave',
     'Vitória SC': 'Guimaraes', 'Sporting CP': 'Sp Lisbon', 'Sporting Lisbon': 'Sp Lisbon',
-    'AEL': 'Larisa', 'Aris Thessaloniki': 'Aris', 'Atromitos Athens': 'Atromitos', 
+    'Austria Wien': 'Austria Vienna', 'FC Blau-Weiß Linz': 'BW Linz', 'Grazer AK': 'Grazer',
+    'Hartberg': 'Hartberg', 'LASK': 'LASK Linz', 'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
+    'Rapid Wien': 'Rapid Vienna', 'Rheindorf Altach': 'Altach', 'Ried': 'Ried',
+    'Sturm Graz': 'Sturm Graz', 'SK Sturm Graz': 'Sturm Graz', 'WSG Tirol': 'Tirol', 'Wolfsberger AC': 'Wolfsberger',
+    'Salzburg': 'Salzburg',
+    'BSC Young Boys': 'Young Boys', 'Young Boys': 'Young Boys', 'FC Basel': 'Basel',
+    'FC Lausanne-Sport': 'Lausanne', 'FC Lugano': 'Lugano', 'Lugano': 'Lugano',
+    'FC Luzern': 'Luzern', 'FC Sion': 'Sion', 'FC St Gallen': 'St Gallen',
+    'FC Thun': 'Thun', 'FC Winterthur': 'Winterthur', 'FC Zurich': 'Zurich',
+    'Grasshopper Zürich': 'Grasshoppers', 'Servette': 'Servette',
+    'AE Kifisia FC': 'Kifisias', 'AEL': 'Larisa', 'Aris Thessaloniki': 'Aris',
+    'Atromitos Athens': 'Atromitos', 'Levadiakos': 'Levadiakos', 
     'PAOK Thessaloniki': 'PAOK', 'PAOK Salonika': 'PAOK',
-    'Panserraikos FC': 'Panserraikos', 'Olympiakos Piraeus': 'Olympiakos', 'Panathinaikos FC': 'Panathinaikos', 'AEK Athens': 'AEK',
+    'Panetolikos Agrinio': 'Panetolikos', 'Panserraikos FC': 'Panserraikos', 'Volos FC': 'Volos NFC',
+    'Olympiakos Piraeus': 'Olympiakos', 'Panathinaikos FC': 'Panathinaikos', 'AEK Athens': 'AEK',
+    'Basaksehir': 'Basaksehir', 'Istanbul Basaksehir': 'Basaksehir',
+    'Besiktas JK': 'Besiktas', 'Besiktas': 'Besiktas',
     'Eyüpspor': 'Eyupspor', 'Fatih Karagümrük': 'Karagumruk',
     'Gazişehir Gaziantep': 'Gaziantep', 'Genclerbirligi SK': 'Genclerbirligi',
-    'Kasimpasa SK': 'Kasimpasa', 'Kasimpasa': 'Kasimpasa',
+    'Goztepe': 'Goztepe', 'Kasimpasa SK': 'Kasimpasa', 'Kasimpasa': 'Kasimpasa',
     'Torku Konyaspor': 'Konyaspor', 'Çaykur Rizespor': 'Rizespor',
     'Galatasaray': 'Galatasaray', 'Fenerbahce': 'Fenerbahce', 'Trabzonspor': 'Trabzonspor',
     'Celtic': 'Celtic', 'Rangers': 'Rangers', 'Rangers FC': 'Rangers',
@@ -386,12 +402,7 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
         html += f"{label:<10}: {fav_str}  [Exp: {val_h:.1f} vs {val_a:.1f}]\n"
 
     # DETTAGLIO PROP (FILTRO "SMART VIEW")
-    # Mostra sempre GOL. Mostra il resto SOLO se NON è una lega compatta.
-    
-    # 1. GOL (Sempre)
     prop_configs = [("GOL", exp_data['Goals'], [0.5, 1.5, 2.5], [0.5, 1.5], [1.5, 2.5, 3.5])]
-    
-    # 2. ALTRI (Solo se Major)
     if league_code not in COMPACT_LEAGUES:
         prop_configs.extend([
             ("CORNER", exp_data['Corn'], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [8.5, 9.5, 10.5]),
@@ -457,8 +468,8 @@ with st.sidebar:
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
     inspect_csv_mode = st.checkbox("🔍 ISPEZIONA NOMI CSV", value=False)
 
-st.title("SmartBet Pro 52")
-st.caption("Smart View (Solo Mercati Rilevanti)")
+st.title("SmartBet Pro 52.1")
+st.caption("Fix: Widget Duplicate ID Crash Solved")
 
 # TABS PRINCIPALI
 tab_main, tab_cal, tab_tracker = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO", "💰 REGISTRO"])
@@ -589,16 +600,18 @@ with tab_main:
             tabs = st.tabs(active_leagues)
             for i, l in enumerate(active_leagues):
                 with tabs[i]:
-                    for m in st.session_state['results_data'][l]:
+                    # QUI ERA L'ERRORE: ORA C'È ENUMERATE(IDX)
+                    for idx, m in enumerate(st.session_state['results_data'][l]):
                         with st.expander(m['label']):
                             st.markdown(m['html'], unsafe_allow_html=True)
                             if 'meta' in m:
                                 st.markdown("---")
                                 st.markdown("📝 **Crea la tua Giocata:**")
                                 c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
-                                mid = f"{l}_{i}_{m['meta']['h']}"
+                                # CHIAVE UNIVOCA FIXATA: usa idx
+                                mid = f"bet_{l}_{idx}"
                                 outcomes = ["1", "X", "2", "Ov 1.5", "Un 1.5", "Ov 2.5", "Un 2.5", "Gol", "NoGol", "1X", "X2"]
-                                user_bet = c1.selectbox("Esito", outcomes, key=f"bet_{mid}")
+                                user_bet = c1.selectbox("Esito", outcomes, key=f"sel_{mid}")
                                 def_odd = 2.0
                                 if user_bet == '1': def_odd = m['meta']['q']['1']
                                 elif user_bet == 'X': def_odd = m['meta']['q']['X']
