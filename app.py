@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Manager 51", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 51.1", page_icon="🛡️", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -73,22 +73,48 @@ LEAGUE_COEFF = {
     'D2': 0.65, 'I2': 0.60, 'SP2': 0.60, 'E2': 0.55
 }
 
-# --- MAPPING 46.3 ---
+# --- MEGA MAPPING 51.1 (Patch Finale) ---
 TEAM_MAPPING = {
-    'Austria Wien': 'Austria Vienna', 'FC Blau-Weiß Linz': 'BW Linz', 'Grazer AK': 'GAK',
-    'Hartberg': 'Hartberg', 'LASK': 'LASK Linz', 'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
-    'Rapid Wien': 'Rapid Vienna', 'Rheindorf Altach': 'Altach', 'Ried': 'Ried',
-    'Sturm Graz': 'Sturm Graz', 'SK Sturm Graz': 'Sturm Graz', 'WSG Tirol': 'Tirol', 'Wolfsberger AC': 'Wolfsberger',
+    # AUSTRIA (A1)
+    'Austria Wien': 'Austria Vienna', 'FC Blau-Weiß Linz': 'BW Linz', 
+    'Grazer AK': 'GAK', 'Hartberg': 'Hartberg', 'LASK': 'LASK Linz', 
+    'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
+    'Rapid Wien': 'Rapid Vienna', 'Rheindorf Altach': 'Altach', 
+    'Ried': 'Ried', 'Sturm Graz': 'Sturm Graz', 'SK Sturm Graz': 'Sturm Graz',
+    'WSG Tirol': 'Tirol', 'Wolfsberger AC': 'Wolfsberger',
+    
+    # SVIZZERA (SW1)
     'BSC Young Boys': 'Young Boys', 'FC Basel': 'Basel', 'FC Lausanne-Sport': 'Lausanne',
     'FC Lugano': 'Lugano', 'Lugano': 'Lugano', 'FC Luzern': 'Luzern', 
     'FC Sion': 'Sion', 'FC St Gallen': 'St Gallen', 'FC Thun': 'Thun', 
-    'FC Winterthur': 'Winterthur', 'FC Zurich': 'Zurich', 'Grasshopper Zürich': 'Grasshoppers', 'Servette': 'Servette',
-    'Atlético Madrid': 'Ath Madrid', 'Espanyol': 'Espanyol', 'Real Sociedad B': 'Sociedad B',
-    'Südtirol': 'Sudtirol', 'US Catanzaro 1929': 'Catanzaro',
+    'FC Winterthur': 'Winterthur', 'FC Zurich': 'Zurich', 
+    'Grasshopper Zürich': 'Grasshoppers', 'Servette': 'Servette',
+    
+    # GERMANIA (D1/D2)
     'SC Preußen Münster': 'Preussen Munster', 'VfL Bochum': 'Bochum', 
-    'AE Kifisia FC': 'Kifisias', 'Levadiakos': 'Levadiakos',
-    'AVS Futebol SAD': 'Avs', 'Wimbledon': 'AFC Wimbledon',
-    'Basaksehir': 'Basaksehir', 'Goztepe': 'Goztepe',
+    '1. FC Heidenheim': 'Heidenheim', 'Holstein Kiel': 'Holstein Kiel', 'FC St. Pauli': 'St Pauli',
+    
+    # SPAGNA (SP1/SP2)
+    'Espanyol': 'Espanol', 'RCD Espanyol': 'Espanol', # Fix specifico richiesto
+    'Real Sociedad B': 'Sociedad B', 
+    'Atlético Madrid': 'Ath Madrid', 
+    
+    # GRECIA (G1)
+    'AE Kifisia FC': 'Kifisia', 'Levadiakos': 'Levadeiakos', # Fix specifico richiesto
+    'Panetolikos Agrinio': 'Panetolikos', 'Volos FC': 'Volos NFC',
+    
+    # TURCHIA (T1)
+    'Basaksehir': 'Buyuksehyr', 'Istanbul Basaksehir': 'Buyuksehyr', # Fix specifico richiesto
+    'Goztepe': 'Goztep', # Fix specifico richiesto
+    'Besiktas JK': 'Besiktas', 
+    
+    # PORTOGALLO (P1)
+    'AVS Futebol SAD': 'AVS', # Fix specifico richiesto
+    
+    # UK (E2)
+    'Wimbledon': 'AFC Wimbledon', 
+    
+    # RESTO DEL MAPPING STANDARD
     'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Napoli': 'Napoli', 'Juventus': 'Juventus',
     'Atalanta BC': 'Atalanta', 'Hellas Verona': 'Verona', 'Udinese Calcio': 'Udinese', 
     'Cagliari Calcio': 'Cagliari', 'US Lecce': 'Lecce', 'Empoli FC': 'Empoli', 
@@ -99,6 +125,7 @@ TEAM_MAPPING = {
     'Modena FC': 'Modena', 'Catanzaro': 'Catanzaro', 'Reggiana': 'Reggiana', 'Brescia': 'Brescia',
     'Cosenza': 'Cosenza', 'Sudtirol': 'Sudtirol', 'Cittadella': 'Cittadella', 'Mantova': 'Mantova',
     'Cesena FC': 'Cesena', 'Cesena': 'Cesena', 'Juve Stabia': 'Juve Stabia', 'Carrarese': 'Carrarese',
+    'US Catanzaro 1929': 'Catanzaro', 'Südtirol': 'Sudtirol',
     'Manchester United': 'Man United', 'Manchester City': 'Man City', 'Tottenham Hotspur': 'Tottenham',
     'Newcastle United': 'Newcastle', 'Wolverhampton Wanderers': 'Wolves', 'Brighton and Hove Albion': 'Brighton',
     'West Ham United': 'West Ham', 'Leeds United': 'Leeds', 'Leicester City': 'Leicester', 
@@ -116,28 +143,25 @@ TEAM_MAPPING = {
     'Doncaster Rovers': 'Doncaster', 'Exeter City': 'Exeter', 'Huddersfield Town': 'Huddersfield',
     'Lincoln City': 'Lincoln', 'Mansfield Town': 'Mansfield', 'Northampton Town': 'Northampton',
     'Peterborough United': 'Peterboro', 'Rotherham United': 'Rotherham', 'Stockport County FC': 'Stockport',
-    'Wigan Athletic': 'Wigan', 'Wimbledon': 'Wimbledon', 'Wycombe Wanderers': 'Wycombe',
+    'Wigan Athletic': 'Wigan', 'Wycombe Wanderers': 'Wycombe',
     'Bayern Munich': 'Bayern Munich', 'Bayer Leverkusen': 'Leverkusen', 'Borussia Dortmund': 'Dortmund',
     'Borussia Monchengladbach': "M'gladbach", '1. FC Köln': 'FC Koln', 'FSV Mainz 05': 'Mainz', 'Mainz 05': 'Mainz',
-    'VfL Wolfsburg': 'Wolfsburg', 'FC St. Pauli': 'St Pauli', 'Holstein Kiel': 'Holstein Kiel',
-    'TSG Hoffenheim': 'Hoffenheim', 'Werder Bremen': 'Werder Bremen', 'Augsburg': 'Augsburg',
-    '1. FC Heidenheim': 'Heidenheim', 'Hamburger SV': 'Hamburg',
-    '1. FC Kaiserslautern': 'Kaiserslautern', '1. FC Magdeburg': 'Magdeburg', '1. FC Nürnberg': 'Nurnberg',
+    'VfL Wolfsburg': 'Wolfsburg', 'TSG Hoffenheim': 'Hoffenheim', 'Werder Bremen': 'Werder Bremen', 'Augsburg': 'Augsburg',
+    'Hamburger SV': 'Hamburg', '1. FC Kaiserslautern': 'Kaiserslautern', '1. FC Magdeburg': 'Magdeburg', '1. FC Nürnberg': 'Nurnberg',
     'Arminia Bielefeld': 'Bielefeld', 'Dynamo Dresden': 'Dresden', 'Eintracht Braunschweig': 'Braunschweig',
     'FC Schalke 04': 'Schalke 04', 'Fortuna Düsseldorf': 'Fortuna Dusseldorf', 'Greuther Fürth': 'Greuther Furth',
     'Hannover 96': 'Hannover', 'Hertha Berlin': 'Hertha', 'Karlsruher SC': 'Karlsruhe',
-    'SC Paderborn': 'Paderborn', 'SC Preußen Münster': 'Preussen Munster', 'SV Darmstadt 98': 'Darmstadt',
+    'SC Paderborn': 'Paderborn', 'SV Darmstadt 98': 'Darmstadt',
     'Eintracht Frankfurt': 'Ein Frankfurt', 'VfB Stuttgart': 'Stuttgart', 'SC Freiburg': 'Freiburg',
-    'Atletico Madrid': 'Ath Madrid', 'Athletic Bilbao': 'Ath Bilbao', 'Real Betis': 'Betis', 'Real Sociedad': 'Sociedad', 
+    'Athletic Bilbao': 'Ath Bilbao', 'Real Betis': 'Betis', 'Real Sociedad': 'Sociedad', 
     'Rayo Vallecano': 'Vallecano', 'Alavés': 'Alaves', 'Cadiz CF': 'Cadiz', 
-    'UD Las Palmas': 'Las Palmas', 'RCD Espanyol': 'Espanyol', 'Espanyol': 'Espanyol',
-    'Real Valladolid': 'Valladolid', 'Leganés': 'Leganes', 'Girona FC': 'Girona',
+    'UD Las Palmas': 'Las Palmas', 'Real Valladolid': 'Valladolid', 'Leganés': 'Leganes', 'Girona FC': 'Girona',
     'CA Osasuna': 'Osasuna', 'Elche CF': 'Elche', 'Celta Vigo': 'Celta',
     'AD Ceuta FC': 'Ceuta', 'Almería': 'Almeria', 'Andorra CF': 'Andorra', 'Burgos CF': 'Burgos',
     'CD Castellón': 'Castellon', 'CD Mirandés': 'Mirandes', 'Cádiz CF': 'Cadiz', 'Córdoba': 'Cordoba',
     'Deportivo La Coruña': 'La Coruna', 'Granada CF': 'Granada', 'Málaga': 'Malaga',
-    'Real Racing Club de Santander': 'Santander', 'Real Sociedad B': 'R Sociedad B', 
-    'Real Valladolid CF': 'Valladolid', 'SD Eibar': 'Eibar', 'SD Huesca': 'Huesca', 'Sporting Gijón': 'Sp Gijon',
+    'Real Racing Club de Santander': 'Santander', 'Real Valladolid CF': 'Valladolid', 
+    'SD Eibar': 'Eibar', 'SD Huesca': 'Huesca', 'Sporting Gijón': 'Sp Gijon',
     'Paris Saint Germain': 'Paris SG', 'Marseille': 'Marseille', 'Lyon': 'Lyon', 
     'RC Lens': 'Lens', 'AS Monaco': 'Monaco', 'Lille OSC': 'Lille', 'Nice': 'Nice', 'Brest': 'Brest',
     'PSV Eindhoven': 'PSV Eindhoven', 'Feyenoord Rotterdam': 'Feyenoord', 'Ajax Amsterdam': 'Ajax', 
@@ -145,40 +169,25 @@ TEAM_MAPPING = {
     'NEC Nijmegen': 'Nijmegen', 'Go Ahead Eagles': 'Go Ahead Eagles', 'Fortuna Sittard': 'For Sittard', 
     'PEC Zwolle': 'Zwolle', 'Almere City': 'Almere City', 'RKC Waalwijk': 'Waalwijk', 
     'SC Heerenveen': 'Heerenveen', 'Heracles Almelo': 'Heracles',
-    'FC Twente Enschede': 'Twente', 'FC Volendam': 'Volendam', 'FC Zwolle': 'Zwolle', 'SC Telstar': 'Telstar',
-    'FC Utrecht': 'Utrecht',
+    'FC Twente Enschede': 'Twente', 'FC Volendam': 'Volendam', 'FC Zwolle': 'Zwolle', 'SC Telstar': 'Telstar', 'FC Utrecht': 'Utrecht',
     'Benfica': 'Benfica', 'FC Porto': 'Porto', 'Vitoria Guimaraes': 'Guimaraes',
     'Boavista FC': 'Boavista', 'Estoril Praia': 'Estoril', 'Casa Pia AC': 'Casa Pia',
     'Farense': 'Farense', 'Arouca': 'Arouca', 'Gil Vicente': 'Gil Vicente',
-    'AVS Futebol SAD': 'Avs', 'Braga': 'Sp Braga', 'SC Braga': 'Sp Braga', 'CF Estrela': 'Estrela',
+    'Braga': 'Sp Braga', 'SC Braga': 'Sp Braga', 'CF Estrela': 'Estrela',
     'Famalicão': 'Famalicao', 'Moreirense FC': 'Moreirense', 'Rio Ave FC': 'Rio Ave',
     'Vitória SC': 'Guimaraes', 'Sporting CP': 'Sp Lisbon', 'Sporting Lisbon': 'Sp Lisbon',
-    'Austria Wien': 'Austria Vienna', 'FC Blau-Weiß Linz': 'BW Linz', 'Grazer AK': 'Grazer',
-    'Hartberg': 'Hartberg', 'LASK': 'LASK Linz', 'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
-    'Rapid Wien': 'Rapid Vienna', 'Rheindorf Altach': 'Altach', 'Ried': 'Ried',
-    'Sturm Graz': 'Sturm Graz', 'SK Sturm Graz': 'Sturm Graz', 'WSG Tirol': 'Tirol', 'Wolfsberger AC': 'Wolfsberger',
-    'Salzburg': 'Salzburg',
-    'BSC Young Boys': 'Young Boys', 'Young Boys': 'Young Boys', 'FC Basel': 'Basel',
-    'FC Lausanne-Sport': 'Lausanne', 'FC Lugano': 'Lugano', 'Lugano': 'Lugano',
-    'FC Luzern': 'Luzern', 'FC Sion': 'Sion', 'FC St Gallen': 'St Gallen',
-    'FC Thun': 'Thun', 'FC Winterthur': 'Winterthur', 'FC Zurich': 'Zurich',
-    'Grasshopper Zürich': 'Grasshoppers', 'Servette': 'Servette',
-    'AE Kifisia FC': 'Kifisias', 'AEL': 'Larisa', 'Aris Thessaloniki': 'Aris',
-    'Atromitos Athens': 'Atromitos', 'Levadiakos': 'Levadiakos', 
+    'AEL': 'Larisa', 'Aris Thessaloniki': 'Aris', 'Atromitos Athens': 'Atromitos', 
     'PAOK Thessaloniki': 'PAOK', 'PAOK Salonika': 'PAOK',
-    'Panetolikos Agrinio': 'Panetolikos', 'Panserraikos FC': 'Panserraikos', 'Volos FC': 'Volos NFC',
-    'Olympiakos Piraeus': 'Olympiakos', 'Panathinaikos FC': 'Panathinaikos', 'AEK Athens': 'AEK',
-    'Basaksehir': 'Basaksehir', 'Istanbul Basaksehir': 'Basaksehir',
-    'Besiktas JK': 'Besiktas', 'Besiktas': 'Besiktas',
+    'Panserraikos FC': 'Panserraikos', 'Olympiakos Piraeus': 'Olympiakos', 'Panathinaikos FC': 'Panathinaikos', 'AEK Athens': 'AEK',
     'Eyüpspor': 'Eyupspor', 'Fatih Karagümrük': 'Karagumruk',
     'Gazişehir Gaziantep': 'Gaziantep', 'Genclerbirligi SK': 'Genclerbirligi',
-    'Goztepe': 'Goztepe', 'Kasimpasa SK': 'Kasimpasa', 'Kasimpasa': 'Kasimpasa',
+    'Kasimpasa SK': 'Kasimpasa', 'Kasimpasa': 'Kasimpasa',
     'Torku Konyaspor': 'Konyaspor', 'Çaykur Rizespor': 'Rizespor',
     'Galatasaray': 'Galatasaray', 'Fenerbahce': 'Fenerbahce', 'Trabzonspor': 'Trabzonspor',
     'Celtic': 'Celtic', 'Rangers': 'Rangers', 'Rangers FC': 'Rangers',
     'Aberdeen': 'Aberdeen', 'Hearts': 'Hearts',
     'KRC Genk': 'Genk', 'Union Saint-Gilloise': 'St Gilloise',
-    'AS Monaco': 'Monaco', 'AS Roma': 'Roma', 'Roma': 'Roma'
+    'AS Roma': 'Roma', 'Roma': 'Roma'
 }
 
 # ==============================================================================
@@ -469,7 +478,7 @@ with st.sidebar:
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
     inspect_csv_mode = st.checkbox("🔍 ISPEZIONA NOMI CSV", value=False)
 
-st.title("SmartBet Manager 51")
+st.title("SmartBet Manager 51.1")
 st.caption("Editor Interattivo: Fissa (📌) e Cancella (❌)")
 
 # TABS PRINCIPALI
