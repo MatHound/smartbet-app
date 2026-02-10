@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro 51.1", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 52", page_icon="👁️", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -45,6 +45,9 @@ LEAGUE_GROUPS = {
     "📉 Leghe Minori": ['I2', 'E1', 'E2', 'D2', 'SP2']
 }
 
+# DEFINIZIONE LEGHE COMPATTE (Solo Gol)
+COMPACT_LEAGUES = LEAGUE_GROUPS["⚽ Europe Tier 2"] + LEAGUE_GROUPS["📉 Leghe Minori"]
+
 ALL_LEAGUES = {
     'UCL': '🇪🇺 Champions League', 'UEL': '🇪🇺 Europa League', 'UECL': '🇪🇺 Conference League',
     'I1': '🇮🇹 Serie A', 'E0': '🇬🇧 Premier League', 'SP1': '🇪🇸 La Liga', 'D1': '🇩🇪 Bundesliga', 'F1': '🇫🇷 Ligue 1',
@@ -73,48 +76,23 @@ LEAGUE_COEFF = {
     'D2': 0.65, 'I2': 0.60, 'SP2': 0.60, 'E2': 0.55
 }
 
-# --- MEGA MAPPING 51.1 (Patch Finale) ---
+# --- MAPPING 51.1 ---
 TEAM_MAPPING = {
-    # AUSTRIA (A1)
-    'Austria Wien': 'Austria Vienna', 'FC Blau-Weiß Linz': 'BW Linz', 
-    'Grazer AK': 'GAK', 'Hartberg': 'Hartberg', 'LASK': 'LASK Linz', 
-    'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
-    'Rapid Wien': 'Rapid Vienna', 'Rheindorf Altach': 'Altach', 
-    'Ried': 'Ried', 'Sturm Graz': 'Sturm Graz', 'SK Sturm Graz': 'Sturm Graz',
-    'WSG Tirol': 'Tirol', 'Wolfsberger AC': 'Wolfsberger',
-    
-    # SVIZZERA (SW1)
+    'Austria Wien': 'Austria Vienna', 'FC Blau-Weiß Linz': 'BW Linz', 'Grazer AK': 'GAK',
+    'Hartberg': 'Hartberg', 'LASK': 'LASK Linz', 'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
+    'Rapid Wien': 'Rapid Vienna', 'Rheindorf Altach': 'Altach', 'Ried': 'Ried',
+    'Sturm Graz': 'Sturm Graz', 'SK Sturm Graz': 'Sturm Graz', 'WSG Tirol': 'Tirol', 'Wolfsberger AC': 'Wolfsberger',
     'BSC Young Boys': 'Young Boys', 'FC Basel': 'Basel', 'FC Lausanne-Sport': 'Lausanne',
     'FC Lugano': 'Lugano', 'Lugano': 'Lugano', 'FC Luzern': 'Luzern', 
     'FC Sion': 'Sion', 'FC St Gallen': 'St Gallen', 'FC Thun': 'Thun', 
-    'FC Winterthur': 'Winterthur', 'FC Zurich': 'Zurich', 
-    'Grasshopper Zürich': 'Grasshoppers', 'Servette': 'Servette',
-    
-    # GERMANIA (D1/D2)
+    'FC Winterthur': 'Winterthur', 'FC Zurich': 'Zurich', 'Grasshopper Zürich': 'Grasshoppers', 'Servette': 'Servette',
+    'Atlético Madrid': 'Ath Madrid', 'Espanyol': 'Espanol', 'RCD Espanyol': 'Espanol', 'Real Sociedad B': 'Sociedad B',
+    'Südtirol': 'Sudtirol', 'US Catanzaro 1929': 'Catanzaro',
     'SC Preußen Münster': 'Preussen Munster', 'VfL Bochum': 'Bochum', 
     '1. FC Heidenheim': 'Heidenheim', 'Holstein Kiel': 'Holstein Kiel', 'FC St. Pauli': 'St Pauli',
-    
-    # SPAGNA (SP1/SP2)
-    'Espanyol': 'Espanol', 'RCD Espanyol': 'Espanol', # Fix specifico richiesto
-    'Real Sociedad B': 'Sociedad B', 
-    'Atlético Madrid': 'Ath Madrid', 
-    
-    # GRECIA (G1)
-    'AE Kifisia FC': 'Kifisia', 'Levadiakos': 'Levadeiakos', # Fix specifico richiesto
-    'Panetolikos Agrinio': 'Panetolikos', 'Volos FC': 'Volos NFC',
-    
-    # TURCHIA (T1)
-    'Basaksehir': 'Buyuksehyr', 'Istanbul Basaksehir': 'Buyuksehyr', # Fix specifico richiesto
-    'Goztepe': 'Goztep', # Fix specifico richiesto
-    'Besiktas JK': 'Besiktas', 
-    
-    # PORTOGALLO (P1)
-    'AVS Futebol SAD': 'AVS', # Fix specifico richiesto
-    
-    # UK (E2)
-    'Wimbledon': 'AFC Wimbledon', 
-    
-    # RESTO DEL MAPPING STANDARD
+    'AE Kifisia FC': 'Kifisia', 'Levadiakos': 'Levadeiakos', 'Panetolikos Agrinio': 'Panetolikos', 'Volos FC': 'Volos NFC',
+    'AVS Futebol SAD': 'AVS', 'Wimbledon': 'AFC Wimbledon',
+    'Basaksehir': 'Buyuksehyr', 'Istanbul Basaksehir': 'Buyuksehyr', 'Goztepe': 'Goztep', 'Besiktas JK': 'Besiktas',
     'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Napoli': 'Napoli', 'Juventus': 'Juventus',
     'Atalanta BC': 'Atalanta', 'Hellas Verona': 'Verona', 'Udinese Calcio': 'Udinese', 
     'Cagliari Calcio': 'Cagliari', 'US Lecce': 'Lecce', 'Empoli FC': 'Empoli', 
@@ -125,7 +103,6 @@ TEAM_MAPPING = {
     'Modena FC': 'Modena', 'Catanzaro': 'Catanzaro', 'Reggiana': 'Reggiana', 'Brescia': 'Brescia',
     'Cosenza': 'Cosenza', 'Sudtirol': 'Sudtirol', 'Cittadella': 'Cittadella', 'Mantova': 'Mantova',
     'Cesena FC': 'Cesena', 'Cesena': 'Cesena', 'Juve Stabia': 'Juve Stabia', 'Carrarese': 'Carrarese',
-    'US Catanzaro 1929': 'Catanzaro', 'Südtirol': 'Sudtirol',
     'Manchester United': 'Man United', 'Manchester City': 'Man City', 'Tottenham Hotspur': 'Tottenham',
     'Newcastle United': 'Newcastle', 'Wolverhampton Wanderers': 'Wolves', 'Brighton and Hove Albion': 'Brighton',
     'West Ham United': 'West Ham', 'Leeds United': 'Leeds', 'Leicester City': 'Leicester', 
@@ -143,7 +120,7 @@ TEAM_MAPPING = {
     'Doncaster Rovers': 'Doncaster', 'Exeter City': 'Exeter', 'Huddersfield Town': 'Huddersfield',
     'Lincoln City': 'Lincoln', 'Mansfield Town': 'Mansfield', 'Northampton Town': 'Northampton',
     'Peterborough United': 'Peterboro', 'Rotherham United': 'Rotherham', 'Stockport County FC': 'Stockport',
-    'Wigan Athletic': 'Wigan', 'Wycombe Wanderers': 'Wycombe',
+    'Wigan Athletic': 'Wigan', 'Wimbledon': 'Wimbledon', 'Wycombe Wanderers': 'Wycombe',
     'Bayern Munich': 'Bayern Munich', 'Bayer Leverkusen': 'Leverkusen', 'Borussia Dortmund': 'Dortmund',
     'Borussia Monchengladbach': "M'gladbach", '1. FC Köln': 'FC Koln', 'FSV Mainz 05': 'Mainz', 'Mainz 05': 'Mainz',
     'VfL Wolfsburg': 'Wolfsburg', 'TSG Hoffenheim': 'Hoffenheim', 'Werder Bremen': 'Werder Bremen', 'Augsburg': 'Augsburg',
@@ -187,7 +164,7 @@ TEAM_MAPPING = {
     'Celtic': 'Celtic', 'Rangers': 'Rangers', 'Rangers FC': 'Rangers',
     'Aberdeen': 'Aberdeen', 'Hearts': 'Hearts',
     'KRC Genk': 'Genk', 'Union Saint-Gilloise': 'St Gilloise',
-    'AS Roma': 'Roma', 'Roma': 'Roma'
+    'AS Monaco': 'Monaco', 'AS Roma': 'Roma', 'Roma': 'Roma'
 }
 
 # ==============================================================================
@@ -202,21 +179,16 @@ def parse_date(iso_date_str):
     except:
         return datetime.now().date(), "Oggi"
 
-# --- TRACKER FUNCTIONS (MANAGED EDITION) ---
+# --- TRACKER FUNCTIONS ---
 def load_portfolio():
     cols = ["Date", "League", "Match", "Bet", "Odds", "Stake", "Result", "Profit", "RawDate", "Pinned"]
     if os.path.exists(TRACKER_FILE):
         df = pd.read_csv(TRACKER_FILE)
-        # Assicura compatibilità con vecchi file (aggiunge colonna Pinned se manca)
-        if "Pinned" not in df.columns:
-            df["Pinned"] = False
-        
-        # Clean duplicates (Shield)
+        if "Pinned" not in df.columns: df["Pinned"] = False
         initial_len = len(df)
         df.drop_duplicates(subset=['Match', 'Bet', 'RawDate'], keep='last', inplace=True)
         if len(df) < initial_len: df.to_csv(TRACKER_FILE, index=False)
         return df
-    
     return pd.DataFrame(columns=cols)
 
 def save_bet_to_csv(date, league, match, bet, odds, stake, raw_date):
@@ -372,14 +344,14 @@ def generate_missing_data_terminal(h_team, a_team, h_found, a_found, bookie_odds
     html += f"\nODDS: 1:{bookie_odds['1']:.2f} X:{bookie_odds['X']:.2f} 2:{bookie_odds['2']:.2f}</div>"
     return html
 
-def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_prob, last_date_h, last_date_a, bankroll, h_form, a_form):
+def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_prob, last_date_h, last_date_a, bankroll, h_form, a_form, league_code):
     html = f"""<div class='terminal-box'>"""
     max_date = max(last_date_h, last_date_a)
     days_lag = (datetime.now() - max_date).days
     if days_lag > 14: html += f"<div class='term-warn'>⚠️ DATI VECCHI ({days_lag}gg)</div>\n"
     html += f"FORMA: {h_team:<15} [{h_form}] vs [{a_form}] {a_team}\n"
     
-    # 1X2
+    # 1X2 (SEMPRE VISIBILE)
     html += f"\n<span class='term-section'>[ 1X2 & MONEY MANAGEMENT ]</span>\n"
     html += f"{'SEGNO':<6} | {'MY QUOTA':<10} | {'BOOKIE':<8} | {'VALUE':<8} | {'PUNTA €'}\n"
     html += "-"*60 + "\n"
@@ -397,7 +369,7 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
         stake_str = f"<span class='term-money'>€ {stake:.2f}</span>" if stake > 0 else "-"
         html += f"{segno:<6} | {my_q:<10.2f} | {book_q:<8.2f} | {val_str:<20} | {stake_str}\n"
 
-    # TESTA A TESTA
+    # TESTA A TESTA (SEMPRE VISIBILE)
     html += f"\n<span class='term-section'>[ TESTA A TESTA ]</span>\n"
     metrics_cfg = [("GOL", 'Goals'), ("CORNER", 'Corn'), ("TIRI", 'Shots'), ("FALLI", 'Fouls'), ("CARDS", 'Cards')]
     for label, key in metrics_cfg:
@@ -413,14 +385,21 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
         val_h, val_a = exp_data[key]
         html += f"{label:<10}: {fav_str}  [Exp: {val_h:.1f} vs {val_a:.1f}]\n"
 
-    # DETTAGLIO PROP
-    prop_configs = [
-        ("GOL", exp_data['Goals'], [0.5, 1.5, 2.5], [0.5, 1.5], [1.5, 2.5, 3.5]),
-        ("CORNER", exp_data['Corn'], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [8.5, 9.5, 10.5]),
-        ("TIRI PORTA", exp_data['Shots'], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [7.5, 8.5, 9.5]),
-        ("FALLI", exp_data['Fouls'], [10.5, 11.5, 12.5], [10.5, 11.5, 12.5], [21.5, 22.5, 23.5]),
-        ("CARDS", exp_data['Cards'], [1.5, 2.5], [1.5, 2.5], [3.5, 4.5])
-    ]
+    # DETTAGLIO PROP (FILTRO "SMART VIEW")
+    # Mostra sempre GOL. Mostra il resto SOLO se NON è una lega compatta.
+    
+    # 1. GOL (Sempre)
+    prop_configs = [("GOL", exp_data['Goals'], [0.5, 1.5, 2.5], [0.5, 1.5], [1.5, 2.5, 3.5])]
+    
+    # 2. ALTRI (Solo se Major)
+    if league_code not in COMPACT_LEAGUES:
+        prop_configs.extend([
+            ("CORNER", exp_data['Corn'], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [8.5, 9.5, 10.5]),
+            ("TIRI PORTA", exp_data['Shots'], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [7.5, 8.5, 9.5]),
+            ("FALLI", exp_data['Fouls'], [10.5, 11.5, 12.5], [10.5, 11.5, 12.5], [21.5, 22.5, 23.5]),
+            ("CARDS", exp_data['Cards'], [1.5, 2.5], [1.5, 2.5], [3.5, 4.5])
+        ])
+    
     for label, (eh, ea), r_h, r_a, r_tot in prop_configs:
         html += f"\n<span class='term-section'>[ {label} DETTAGLIO ]</span>\n"
         html += f"{'LINEA':<15} | {'PROB %':<8} | {'QUOTA'}\n"
@@ -478,8 +457,8 @@ with st.sidebar:
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
     inspect_csv_mode = st.checkbox("🔍 ISPEZIONA NOMI CSV", value=False)
 
-st.title("SmartBet Manager 51.1")
-st.caption("Editor Interattivo: Fissa (📌) e Cancella (❌)")
+st.title("SmartBet Pro 52")
+st.caption("Smart View (Solo Mercati Rilevanti)")
 
 # TABS PRINCIPALI
 tab_main, tab_cal, tab_tracker = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO", "💰 REGISTRO"])
@@ -589,10 +568,11 @@ with tab_main:
                         html_block = generate_complete_terminal(
                             h_team, a_team, exp_data, 
                             {'1':q1_b,'X':qX_b,'2':q2_b}, {'1':roi_1,'X':roi_X,'2':roi_2},
-                            min_prob_val, h_data['Date'], a_data['Date'], bankroll_input, h_form, a_form
+                            min_prob_val, h_data['Date'], a_data['Date'], bankroll_input, h_form, a_form,
+                            code
                         )
                         
-                        item_ok = {'label': f"✅ {fmt_date_str} | {h_team} vs {a_team} ({code})", 'html': html_block, 'raw_date': raw_date_obj}
+                        item_ok = {'label': f"✅ {fmt_date_str} | {h_team} vs {a_team} ({code})", 'html': html_block, 'raw_date': raw_date_obj, 'meta': {'h': h_team, 'a': a_team, 'q': {'1':q1_b, 'X':qX_b, '2':q2_b}}}
                         st.session_state['results_data'][league_name].append(item_ok)
                         st.session_state['calendar_data'].append(item_ok)
 
@@ -610,7 +590,24 @@ with tab_main:
             for i, l in enumerate(active_leagues):
                 with tabs[i]:
                     for m in st.session_state['results_data'][l]:
-                        with st.expander(m['label']): st.markdown(m['html'], unsafe_allow_html=True)
+                        with st.expander(m['label']):
+                            st.markdown(m['html'], unsafe_allow_html=True)
+                            if 'meta' in m:
+                                st.markdown("---")
+                                st.markdown("📝 **Crea la tua Giocata:**")
+                                c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
+                                mid = f"{l}_{i}_{m['meta']['h']}"
+                                outcomes = ["1", "X", "2", "Ov 1.5", "Un 1.5", "Ov 2.5", "Un 2.5", "Gol", "NoGol", "1X", "X2"]
+                                user_bet = c1.selectbox("Esito", outcomes, key=f"bet_{mid}")
+                                def_odd = 2.0
+                                if user_bet == '1': def_odd = m['meta']['q']['1']
+                                elif user_bet == 'X': def_odd = m['meta']['q']['X']
+                                elif user_bet == '2': def_odd = m['meta']['q']['2']
+                                user_odd = c2.number_input("Quota", value=def_odd, step=0.01, key=f"odd_{mid}")
+                                user_stake = c3.number_input("€", value=2.0, step=0.5, key=f"stk_{mid}")
+                                if c4.button("💾", key=f"btn_{mid}"):
+                                    save_bet_to_csv(m['raw_date'], l, f"{m['meta']['h']} vs {m['meta']['a']}", user_bet, user_odd, user_stake, m['raw_date'])
+                                    st.toast("Salvato!")
         else: st.write("Nessun risultato.")
 
 # TAB CALENDARIO
@@ -630,8 +627,6 @@ with tab_cal:
 # TAB TRACKER (MANAGER MODE)
 with tab_tracker:
     st.markdown("### 📊 Registro & Manager")
-    
-    # UPLOAD/DOWNLOAD
     c1, c2 = st.columns(2)
     with c1:
         if os.path.exists(TRACKER_FILE):
@@ -647,17 +642,13 @@ with tab_tracker:
     if pf.empty:
         st.info("Nessuna giocata.")
     else:
-        # DATA EDITOR
         st.markdown("#### Modifica Giocate")
-        # Add temporary column for deletion in the UI (not saved in CSV yet)
-        if "Delete" not in pf.columns:
-            pf["Delete"] = False
-            
+        if "Delete" not in pf.columns: pf["Delete"] = False
         edited_pf = st.data_editor(
             pf,
             column_config={
-                "Pinned": st.column_config.CheckboxColumn("📌 Fix", help="Se attivo, questa riga non verrà mai cancellata", default=False),
-                "Delete": st.column_config.CheckboxColumn("❌ Del", help="Seleziona per eliminare", default=False),
+                "Pinned": st.column_config.CheckboxColumn("📌 Fix", help="Blocca riga", default=False),
+                "Delete": st.column_config.CheckboxColumn("❌ Del", help="Elimina riga", default=False),
                 "Result": st.column_config.SelectboxColumn("Result", options=["WIN", "LOSS", "Pending"]),
             },
             disabled=["Date", "League", "Match", "Bet", "Odds", "Stake", "Profit"],
@@ -666,46 +657,32 @@ with tab_tracker:
         )
         
         c_save, c_refresh = st.columns(2)
-        
-        if c_save.button("💾 APPLICA MODIFICHE (Salva/Cancella)"):
-            # Logic: Keep rows where (Delete is False) OR (Pinned is True)
-            # Pinned protects from deletion
+        if c_save.button("💾 APPLICA MODIFICHE"):
             final_df = edited_pf[ (~edited_pf['Delete']) | (edited_pf['Pinned']) ].copy()
             final_df.drop(columns=['Delete'], inplace=True, errors='ignore')
             final_df.to_csv(TRACKER_FILE, index=False)
-            st.success("Registro aggiornato!")
-            st.rerun()
+            st.success("Aggiornato!"); st.rerun()
             
-        if c_refresh.button("🔄 AUTO-GRADING (Controlla Risultati)"):
+        if c_refresh.button("🔄 AUTO-GRADING"):
             with st.spinner("Controllo..."):
                 domestic_cache = {}
                 for k in ALL_LEAGUES.keys(): 
                     if k not in ['UCL','UEL','UECL']: domestic_cache[k] = scarica_dati(k)
-                
-                # Reload from file to ensure we use clean data
                 current_df = load_portfolio()
                 updated_df = check_results_automatic(current_df, domestic_cache)
-                st.success("Fatto!")
-                st.rerun()
+                st.success("Fatto!"); st.rerun()
 
-        # METRICS
         wins = len(pf[pf['Result'] == 'WIN']); losses = len(pf[pf['Result'] == 'LOSS'])
         profit = pf['Profit'].sum(); roi = (profit / pf['Stake'].sum() * 100) if pf['Stake'].sum() > 0 else 0
-        
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Giocate", len(pf)); m2.metric("W/L", f"{wins}/{losses}")
         m3.metric("Profitto", f"€ {profit:.2f}", delta_color="normal")
         m4.metric("ROI", f"{roi:.1f}%")
         
-        if st.button("🗑️ RESET TOTALE (Salva solo i Pinned)"):
+        if st.button("🗑️ RESET TOTALE"):
             if os.path.exists(TRACKER_FILE):
-                # Load, filter for Pinned, Save
                 df_reset = pd.read_csv(TRACKER_FILE)
-                if "Pinned" in df_reset.columns:
-                    df_reset = df_reset[df_reset['Pinned'] == True]
-                else:
-                    df_reset = df_reset.iloc[0:0] # Empty
-                
+                if "Pinned" in df_reset.columns: df_reset = df_reset[df_reset['Pinned'] == True]
+                else: df_reset = df_reset.iloc[0:0]
                 df_reset.to_csv(TRACKER_FILE, index=False)
-                st.warning("Reset effettuato (Righe fissate mantenute).")
-                st.rerun()
+                st.warning("Reset effettuato."); st.rerun()
