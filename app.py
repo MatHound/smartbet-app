@@ -2,20 +2,19 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
-import os
 from scipy.stats import poisson
 from datetime import datetime, timedelta
 
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro 52.2 Lite", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 53.0 Evo", page_icon="🧬", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
 MARKET = 'h2h'
 
-# CSS Custom
+# CSS Custom (Terminal Style)
 st.markdown("""
 <style>
     .stProgress { display: none; }
@@ -75,7 +74,7 @@ LEAGUE_COEFF = {
     'D2': 0.65, 'I2': 0.60, 'SP2': 0.60, 'E2': 0.55
 }
 
-# --- MAPPING 51.1 ---
+# --- MAPPING TEAMS (Completo) ---
 TEAM_MAPPING = {
     'Austria Wien': 'Austria Vienna', 'FC Blau-Weiß Linz': 'BW Linz', 'Grazer AK': 'GAK',
     'Hartberg': 'Hartberg', 'LASK': 'LASK Linz', 'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
@@ -183,7 +182,7 @@ TEAM_MAPPING = {
 }
 
 # ==============================================================================
-# FUNZIONI CORE
+# FUNZIONI CORE (AGGIORNATE CON xG e MATRIX 10x10)
 # ==============================================================================
 
 def parse_date(iso_date_str):
@@ -193,6 +192,18 @@ def parse_date(iso_date_str):
         return dt_ita.date(), dt_ita.strftime("%d/%m %H:%M")
     except:
         return datetime.now().date(), "Oggi"
+
+def calculate_synthetic_xg(row):
+    """Calcola xG basato su euristica: (TiriPorta * 0.32) + (TiriFuori * 0.05) + (Corner * 0.03)"""
+    try:
+        hs, hst, hc = float(row.get('HS', 0)), float(row.get('HST', 0)), float(row.get('HC', 0))
+        as_, ast, ac = float(row.get('AS', 0)), float(row.get('AST', 0)), float(row.get('AC', 0))
+        
+        xg_h = (hst * 0.32) + (max(0, hs - hst) * 0.05) + (hc * 0.03)
+        xg_a = (ast * 0.32) + (max(0, as_ - ast) * 0.05) + (ac * 0.03)
+        return xg_h, xg_a
+    except:
+        return 0.0, 0.0
 
 @st.cache_data(ttl=3600)
 def scarica_dati(codice_lega):
@@ -209,9 +220,13 @@ def scarica_dati(codice_lega):
         
         for col in ['HST','AST','HC','AC','HF','AF','HY','AY']:
             if col not in df.columns: df[col] = 0.0
-            
+        
+        # --- SYNTHETIC XG CALCULATION ---
+        df['xG_H'], df['xG_A'] = zip(*df.apply(calculate_synthetic_xg, axis=1))
+
         avgs = {
             'Goals_H': df['FTHG'].mean(), 'Goals_A': df['FTAG'].mean(),
+            'xG_H': df['xG_H'].mean(), 'xG_A': df['xG_A'].mean(),
             'Shots_H': df['HST'].mean(), 'Shots_A': df['AST'].mean(),
             'Corn_H': df['HC'].mean(), 'Corn_A': df['AC'].mean(),
             'Fouls_H': df['HF'].mean(), 'Fouls_A': df['AF'].mean(),
@@ -223,22 +238,32 @@ def scarica_dati(codice_lega):
         h_df = df[['Date','HomeTeam','Result']].rename(columns={'HomeTeam':'Team'})
         h_df['IsHome'] = 1
         h_df['FormChar'] = np.where(h_df['Result'] == 'H', 'W', np.where(h_df['Result'] == 'A', 'L', 'D'))
-        h_df['Goals_For'] = df['FTHG']; h_df['Shots_For'] = df['HST']; h_df['Corn_For'] = df['HC']; h_df['Fouls_For'] = df['HF']; h_df['Cards_For'] = df['HY']
-        h_df['Goals_Ag'] = df['FTAG']; h_df['Shots_Ag'] = df['AST']; h_df['Corn_Ag'] = df['AC']; h_df['Fouls_Ag'] = df['AF']; h_df['Cards_Ag'] = df['AY']
+        h_df['Goals_For'] = df['FTHG']; h_df['Goals_Ag'] = df['FTAG']
+        h_df['xG_For'] = df['xG_H']; h_df['xG_Ag'] = df['xG_A'] # Add xG
+        h_df['Shots_For'] = df['HST']; h_df['Shots_Ag'] = df['AST']
+        h_df['Corn_For'] = df['HC']; h_df['Corn_Ag'] = df['AC']
+        h_df['Fouls_For'] = df['HF']; h_df['Fouls_Ag'] = df['AF']
+        h_df['Cards_For'] = df['HY']; h_df['Cards_Ag'] = df['AY']
         
         a_df = df[['Date','AwayTeam','Result']].rename(columns={'AwayTeam':'Team'})
         a_df['IsHome'] = 0
         a_df['FormChar'] = np.where(a_df['Result'] == 'A', 'W', np.where(a_df['Result'] == 'H', 'L', 'D'))
-        a_df['Goals_For'] = df['FTAG']; a_df['Shots_For'] = df['AST']; a_df['Corn_For'] = df['AC']; a_df['Fouls_For'] = df['AF']; a_df['Cards_For'] = df['AY']
-        a_df['Goals_Ag'] = df['FTHG']; a_df['Shots_Ag'] = df['HST']; a_df['Corn_Ag'] = df['HC']; a_df['Fouls_Ag'] = df['HF']; a_df['Cards_Ag'] = df['HY']
+        a_df['Goals_For'] = df['FTAG']; a_df['Goals_Ag'] = df['FTHG']
+        a_df['xG_For'] = df['xG_A']; a_df['xG_Ag'] = df['xG_H'] # Add xG
+        a_df['Shots_For'] = df['AST']; a_df['Shots_Ag'] = df['HST']
+        a_df['Corn_For'] = df['AC']; a_df['Corn_Ag'] = df['HC']
+        a_df['Fouls_For'] = df['AF']; a_df['Fouls_Ag'] = df['HF']
+        a_df['Cards_For'] = df['AY']; a_df['Cards_Ag'] = df['HY']
         
         full_df = pd.concat([h_df, a_df]).sort_values(['Team','Date'])
         
-        metrics = ['Goals', 'Shots', 'Corn', 'Fouls', 'Cards']
+        # AGGIUNTO xG ALLE METRICHE
+        metrics = ['Goals', 'xG', 'Shots', 'Corn', 'Fouls', 'Cards']
         for m in metrics:
             full_df[f'{m}_Att_Rat'] = np.where(full_df['IsHome']==1, full_df[f'{m}_For']/avgs[f'{m}_H'], full_df[f'{m}_For']/avgs[f'{m}_A'])
             full_df[f'{m}_Def_Rat'] = np.where(full_df['IsHome']==1, full_df[f'{m}_Ag']/avgs[f'{m}_A'], full_df[f'{m}_Ag']/avgs[f'{m}_H'])
             
+            # EWM (Weighted Average)
             full_df[f'W_{m}_Att'] = full_df.groupby('Team')[f'{m}_Att_Rat'].transform(lambda x: x.ewm(span=5, min_periods=1).mean())
             full_df[f'W_{m}_Def'] = full_df.groupby('Team')[f'{m}_Def_Rat'].transform(lambda x: x.ewm(span=5, min_periods=1).mean())
 
@@ -257,13 +282,19 @@ def calculate_kelly_stake(bankroll, odds, probability, fraction=0.3):
     return round(bankroll * max(0, f) * fraction, 2)
 
 def calcola_1x2_dixon_coles(lam_h, lam_a):
-    mat = np.zeros((6,6))
-    for i in range(6):
-        for j in range(6): mat[i,j] = poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
+    # UPGRADE: MATRIX 10x10 (copre fino a 9 gol)
+    range_max = 10
+    mat = np.zeros((range_max, range_max))
+    for i in range(range_max):
+        for j in range(range_max): mat[i,j] = poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
+    
     rho = 0.13
     mat[0,0] *= (1 - (lam_h * lam_a * rho)); mat[0,1] *= (1 + (lam_h * rho))
     mat[1,0] *= (1 + (lam_a * rho)); mat[1,1] *= (1 - rho)
+    
+    # Normalizza se la somma non è 1 (a causa del taglio a 10 gol)
     mat = mat / np.sum(mat)
+    
     p1 = np.sum(np.tril(mat,-1)); pX = np.trace(mat); p2 = np.sum(np.triu(mat,1))
     return (1/p1 if p1>0 else 99), (1/pX if pX>0 else 99), (1/p2 if p2>0 else 99)
 
@@ -301,7 +332,7 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
     if days_lag > 14: html += f"<div class='term-warn'>⚠️ DATI VECCHI ({days_lag}gg)</div>\n"
     html += f"FORMA: {h_team:<15} [{h_form}] vs [{a_form}] {a_team}\n"
     
-    # 1X2 (SEMPRE VISIBILE)
+    # 1X2 & VALUE
     html += f"\n<span class='term-section'>[ 1X2 & MONEY MANAGEMENT ]</span>\n"
     html += f"{'SEGNO':<6} | {'MY QUOTA':<10} | {'BOOKIE':<8} | {'VALUE':<8} | {'PUNTA €'}\n"
     html += "-"*60 + "\n"
@@ -319,9 +350,18 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
         stake_str = f"<span class='term-money'>€ {stake:.2f}</span>" if stake > 0 else "-"
         html += f"{segno:<6} | {my_q:<10.2f} | {book_q:<8.2f} | {val_str:<20} | {stake_str}\n"
 
-    # TESTA A TESTA (SEMPRE VISIBILE)
+    # XG INSIGHTS (NUOVA SEZIONE)
+    xg_h, xg_a = exp_data['xG']
+    gl_h, gl_a = exp_data['RealGoals'] # Salvati a parte
+    html += f"\n<span class='term-section'>[ XG REALITY CHECK ]</span>\n"
+    html += f"CASA -> Real Goals Exp: {gl_h:.2f} | xG Exp: {xg_h:.2f}\n"
+    html += f"OSP  -> Real Goals Exp: {gl_a:.2f} | xG Exp: {xg_a:.2f}\n"
+    html += f"Blended Prediction used for Matrix: 50% Goals + 50% xG\n"
+
+    # TESTA A TESTA
     html += f"\n<span class='term-section'>[ TESTA A TESTA ]</span>\n"
-    metrics_cfg = [("GOL", 'Goals'), ("CORNER", 'Corn'), ("TIRI", 'Shots'), ("FALLI", 'Fouls'), ("CARDS", 'Cards')]
+    # Goals qui è quello ibrido
+    metrics_cfg = [("GOL (Hyb)", 'Goals'), ("CORNER", 'Corn'), ("TIRI", 'Shots'), ("FALLI", 'Fouls'), ("CARDS", 'Cards')]
     for label, key in metrics_cfg:
         ph, pa = calcola_h2h_favorito(exp_data[key][0], exp_data[key][1])
         if ph > pa:
@@ -335,7 +375,7 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
         val_h, val_a = exp_data[key]
         html += f"{label:<10}: {fav_str}  [Exp: {val_h:.1f} vs {val_a:.1f}]\n"
 
-    # DETTAGLIO PROP (FILTRO "SMART VIEW")
+    # DETTAGLIO PROP
     prop_configs = [("GOL", exp_data['Goals'], [0.5, 1.5, 2.5], [0.5, 1.5], [1.5, 2.5, 3.5])]
     if league_code not in COMPACT_LEAGUES:
         prop_configs.extend([
@@ -402,8 +442,8 @@ with st.sidebar:
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
     inspect_csv_mode = st.checkbox("🔍 ISPEZIONA NOMI CSV", value=False)
 
-st.title("SmartBet Pro 52.2 Lite")
-st.caption("Version: No-Register / Scanner Only")
+st.title("SmartBet Pro 53.0 Evo")
+st.caption("Includes: Synthetic xG Engine | Matrix 10x10 | Hybrid Prediction")
 
 # TABS PRINCIPALI (Solo 2 ora)
 tab_main, tab_cal = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO"])
@@ -484,9 +524,10 @@ with tab_main:
                             st.session_state['calendar_data'].append(item_err)
                             continue
 
-                        # Matrix
+                        # --- CALCOLO MATRICE ESTESA (Goals + xG Hybrid) ---
                         exp_data = {} 
-                        metrics = ['Goals', 'Shots', 'Corn', 'Fouls', 'Cards']
+                        # Lista completa inclusi xG
+                        metrics = ['Goals', 'xG', 'Shots', 'Corn', 'Fouls', 'Cards']
                         for met in metrics:
                             h_att_r = h_data[f'W_{met}_Att']; h_def_r = h_data[f'W_{met}_Def']; h_lea_avg_h = h_avgs[f'{met}_H']
                             a_att_r = a_data[f'W_{met}_Att']; a_def_r = a_data[f'W_{met}_Def']; a_lea_avg_a = a_avgs[f'{met}_A']
@@ -497,6 +538,16 @@ with tab_main:
                             val_h = h_att_r * a_def_r * h_lea_avg_h * f_h_coeff
                             val_a = a_att_r * h_def_r * a_lea_avg_a * f_a_coeff
                             exp_data[met] = (val_h, val_a)
+
+                        # SALVIAMO I DATI PURI PER DISPLAY
+                        exp_data['RealGoals'] = exp_data['Goals'] 
+
+                        # APPLICHIAMO IL MIX (50% Goals + 50% xG) PER IL CALCOLO FINALE
+                        # Se xG non è disponibile (0.0), usa solo Goals
+                        if exp_data['xG'][0] > 0 and exp_data['xG'][1] > 0:
+                             mix_h = (exp_data['Goals'][0] * 0.5) + (exp_data['xG'][0] * 0.5)
+                             mix_a = (exp_data['Goals'][1] * 0.5) + (exp_data['xG'][1] * 0.5)
+                             exp_data['Goals'] = (mix_h, mix_a) # Sovrascriviamo Goals con Hybrid
 
                         if q1_b == 0: continue
                         my_q1, my_qX, my_q2 = calcola_1x2_dixon_coles(exp_data['Goals'][0], exp_data['Goals'][1])
@@ -509,7 +560,7 @@ with tab_main:
                             code
                         )
                         
-                        item_ok = {'label': f"✅ {fmt_date_str} | {h_team} vs {a_team} ({code})", 'html': html_block, 'raw_date': raw_date_obj, 'meta': {'h': h_team, 'a': a_team, 'q': {'1':q1_b, 'X':qX_b, '2':q2_b}}}
+                        item_ok = {'label': f"✅ {fmt_date_str} | {h_team} vs {a_team} ({code})", 'html': html_block, 'raw_date': raw_date_obj}
                         st.session_state['results_data'][league_name].append(item_ok)
                         st.session_state['calendar_data'].append(item_ok)
 
@@ -529,7 +580,6 @@ with tab_main:
                     for idx, m in enumerate(st.session_state['results_data'][l]):
                         with st.expander(m['label']):
                             st.markdown(m['html'], unsafe_allow_html=True)
-                            # RIMOSSA LA SEZIONE DI SALVATAGGIO
         else: st.write("Nessun risultato.")
 
 # TAB CALENDARIO
