@@ -108,10 +108,10 @@ TEAM_MAPPING = {
     'Hartberg': 'Hartberg', 'LASK': 'LASK Linz', 'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
     'Rapid Wien': 'Rapid Vienna', 'Rheindorf Altach': 'Altach', 'Ried': 'Ried',
     'Sturm Graz': 'Sturm Graz', 'SK Sturm Graz': 'Sturm Graz', 'WSG Tirol': 'Tirol', 'Wolfsberger AC': 'Wolfsberger',
-    'BSC Young Boys': 'Young Boys', 'FC Basel': 'Basel', 'FC Lausanne-Sport': 'Lausanne',
-    'FC Lugano': 'Lugano', 'Lugano': 'Lugano', 'FC Luzern': 'Luzern', 
-    'FC Sion': 'Sion', 'FC St Gallen': 'St Gallen', 'FC Thun': 'Thun', 
-    'FC Winterthur': 'Winterthur', 'FC Zurich': 'Zurich', 'Grasshopper Zürich': 'Grasshoppers', 'Servette': 'Servette',
+    'Young Boys': 'Young Boys', 'Basel': 'Basel', '': 'Lausanne',
+    'Lugano': 'Lugano', 'Lugano': 'Lugano', 'Luzern': 'Luzern', 
+    'Sion': 'Sion', 'FC St Gallen': 'St Gallen', 'Thun': 'Thun', 
+    'Winterthur': 'Winterthur', 'Zurich': 'Zurich', 'Grasshopper': 'Grasshoppers', 'Servette': 'Servette',
     'Atlético Madrid': 'Ath Madrid', 'Espanyol': 'Espanol', 'RCD Espanyol': 'Espanol', 'Real Sociedad B': 'Sociedad B',
     'Südtirol': 'Sudtirol', 'US Catanzaro 1929': 'Catanzaro',
     'SC Preußen Münster': 'Preussen Munster', 'VfL Bochum': 'Bochum', 
@@ -206,7 +206,8 @@ TEAM_MAPPING = {
     'Celtic': 'Celtic', 'Rangers': 'Rangers', 'Rangers FC': 'Rangers',
     'Aberdeen': 'Aberdeen', 'Hearts': 'Hearts',
     'KRC Genk': 'Genk', 'Union Saint-Gilloise': 'St Gilloise',
-    'AS Monaco': 'Monaco', 'AS Roma': 'Roma', 'Roma': 'Roma'
+    'AS Monaco': 'Monaco', 'AS Roma': 'Roma', 'Roma': 'Roma',
+    'Grimsby': 'Grimsby', 'Bodo/Glimt': 'Bodo/Glimt'
 }
 
 # ==============================================================================
