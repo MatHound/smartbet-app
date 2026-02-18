@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro 53.0 Evo", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 54.0 Elo", page_icon="⚡", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -43,7 +43,6 @@ LEAGUE_GROUPS = {
     "📉 Leghe Minori": ['I2', 'E1', 'E2', 'D2', 'SP2']
 }
 
-# DEFINIZIONE LEGHE COMPATTE (Solo Gol)
 COMPACT_LEAGUES = LEAGUE_GROUPS["⚽ Europe Tier 2"] + LEAGUE_GROUPS["📉 Leghe Minori"]
 
 ALL_LEAGUES = {
@@ -67,6 +66,7 @@ API_MAPPING = {
     'A1': 'soccer_austria_bundesliga', 'SW1': 'soccer_switzerland_superleague'
 }
 
+# Usiamo questi coeff per definire l'ELO DI PARTENZA
 LEAGUE_COEFF = {
     'E0': 1.00, 'SP1': 0.96, 'I1': 0.94, 'D1': 0.92, 'F1': 0.88,
     'P1': 0.82, 'N1': 0.80, 'B1': 0.75, 'T1': 0.70, 'E1': 0.70,
@@ -74,7 +74,6 @@ LEAGUE_COEFF = {
     'D2': 0.65, 'I2': 0.60, 'SP2': 0.60, 'E2': 0.55
 }
 
-# --- MAPPING TEAMS (Completo) ---
 TEAM_MAPPING = {
     'Austria Wien': 'Austria Vienna', 'FC Blau-Weiß Linz': 'BW Linz', 'Grazer AK': 'GAK',
     'Hartberg': 'Hartberg', 'LASK': 'LASK Linz', 'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
@@ -182,7 +181,58 @@ TEAM_MAPPING = {
 }
 
 # ==============================================================================
-# FUNZIONI CORE (AGGIORNATE CON xG e MATRIX 10x10)
+# ELO RATING ENGINE
+# ==============================================================================
+def calculate_elo_updates(df_matches, league_code):
+    """
+    Calcola l'Elo Rating cronologico per tutte le partite del DF.
+    Restituisce un dizionario con i Rating Finali.
+    """
+    # 1. Determina Elo Base in base al Tier del Campionato
+    base_rating = 1500 # Default Tier 2
+    coeff = LEAGUE_COEFF.get(league_code, 0.70)
+    
+    if coeff >= 0.90: base_rating = 1600 # Tier 1 (Serie A, Premier...)
+    elif coeff <= 0.65: base_rating = 1400 # Tier 3 (Leghe Minori)
+    
+    elo_dict = {} # {TeamName: CurrentRating}
+    K_FACTOR = 32 # Standard per club
+    
+    # Inizializza Elo per tutti i team nel DF
+    all_teams = set(df_matches['HomeTeam'].unique()) | set(df_matches['AwayTeam'].unique())
+    for t in all_teams:
+        elo_dict[t] = base_rating
+        
+    # Processa match cronologicamente
+    for idx, row in df_matches.iterrows():
+        h, a = row['HomeTeam'], row['AwayTeam']
+        res = row['Result'] # H, A, D
+        
+        # Recupera rating attuali
+        rh = elo_dict[h]
+        ra = elo_dict[a]
+        
+        # Calcolo Expected Score
+        # Formula Elo: E = 1 / (1 + 10^((Rb - Ra)/400))
+        ea_home = 1 / (1 + 10 ** ((ra - rh) / 400))
+        ea_away = 1 / (1 + 10 ** ((rh - ra) / 400))
+        
+        # Actual Score
+        if res == 'H': sa_home, sa_away = 1.0, 0.0
+        elif res == 'A': sa_home, sa_away = 0.0, 1.0
+        else: sa_home, sa_away = 0.5, 0.5
+        
+        # Aggiorna Rating
+        new_rh = rh + K_FACTOR * (sa_home - ea_home)
+        new_ra = ra + K_FACTOR * (sa_away - ea_away)
+        
+        elo_dict[h] = new_rh
+        elo_dict[a] = new_ra
+        
+    return elo_dict
+
+# ==============================================================================
+# FUNZIONI CORE (UPDATED)
 # ==============================================================================
 
 def parse_date(iso_date_str):
@@ -194,11 +244,9 @@ def parse_date(iso_date_str):
         return datetime.now().date(), "Oggi"
 
 def calculate_synthetic_xg(row):
-    """Calcola xG basato su euristica: (TiriPorta * 0.32) + (TiriFuori * 0.05) + (Corner * 0.03)"""
     try:
         hs, hst, hc = float(row.get('HS', 0)), float(row.get('HST', 0)), float(row.get('HC', 0))
         as_, ast, ac = float(row.get('AS', 0)), float(row.get('AST', 0)), float(row.get('AC', 0))
-        
         xg_h = (hst * 0.32) + (max(0, hs - hst) * 0.05) + (hc * 0.03)
         xg_a = (ast * 0.32) + (max(0, as_ - ast) * 0.05) + (ac * 0.03)
         return xg_h, xg_a
@@ -207,7 +255,7 @@ def calculate_synthetic_xg(row):
 
 @st.cache_data(ttl=3600)
 def scarica_dati(codice_lega):
-    if codice_lega in ['UCL', 'UEL', 'UECL']: return None, None, None
+    if codice_lega in ['UCL', 'UEL', 'UECL']: return None, None, None, None
     url = f"https://www.football-data.co.uk/mmz4281/{STAGIONE}/{codice_lega}.csv"
     try:
         df = pd.read_csv(url)
@@ -216,13 +264,17 @@ def scarica_dati(codice_lega):
         df['HomeTeam'] = df['HomeTeam'].str.strip(); df['AwayTeam'] = df['AwayTeam'].str.strip()
         
         needed = ['Date','HomeTeam','AwayTeam','FTHG','FTAG']
-        if not all(col in df.columns for col in needed): return None, None, None
+        if not all(col in df.columns for col in needed): return None, None, None, None
         
         for col in ['HST','AST','HC','AC','HF','AF','HY','AY']:
             if col not in df.columns: df[col] = 0.0
         
-        # --- SYNTHETIC XG CALCULATION ---
+        # --- SYNTHETIC XG ---
         df['xG_H'], df['xG_A'] = zip(*df.apply(calculate_synthetic_xg, axis=1))
+
+        # --- ELO RATING CALCULATION (NEW) ---
+        df['Result'] = np.where(df['FTHG'] > df['FTAG'], 'H', np.where(df['FTHG'] < df['FTAG'], 'A', 'D'))
+        elo_ratings = calculate_elo_updates(df, codice_lega)
 
         avgs = {
             'Goals_H': df['FTHG'].mean(), 'Goals_A': df['FTAG'].mean(),
@@ -233,13 +285,11 @@ def scarica_dati(codice_lega):
             'Cards_H': df['HY'].mean(), 'Cards_A': df['AY'].mean(),
         }
         
-        df['Result'] = np.where(df['FTHG'] > df['FTAG'], 'H', np.where(df['FTHG'] < df['FTAG'], 'A', 'D'))
-        
         h_df = df[['Date','HomeTeam','Result']].rename(columns={'HomeTeam':'Team'})
         h_df['IsHome'] = 1
         h_df['FormChar'] = np.where(h_df['Result'] == 'H', 'W', np.where(h_df['Result'] == 'A', 'L', 'D'))
         h_df['Goals_For'] = df['FTHG']; h_df['Goals_Ag'] = df['FTAG']
-        h_df['xG_For'] = df['xG_H']; h_df['xG_Ag'] = df['xG_A'] # Add xG
+        h_df['xG_For'] = df['xG_H']; h_df['xG_Ag'] = df['xG_A'] 
         h_df['Shots_For'] = df['HST']; h_df['Shots_Ag'] = df['AST']
         h_df['Corn_For'] = df['HC']; h_df['Corn_Ag'] = df['AC']
         h_df['Fouls_For'] = df['HF']; h_df['Fouls_Ag'] = df['AF']
@@ -249,7 +299,7 @@ def scarica_dati(codice_lega):
         a_df['IsHome'] = 0
         a_df['FormChar'] = np.where(a_df['Result'] == 'A', 'W', np.where(a_df['Result'] == 'H', 'L', 'D'))
         a_df['Goals_For'] = df['FTAG']; a_df['Goals_Ag'] = df['FTHG']
-        a_df['xG_For'] = df['xG_A']; a_df['xG_Ag'] = df['xG_H'] # Add xG
+        a_df['xG_For'] = df['xG_A']; a_df['xG_Ag'] = df['xG_H']
         a_df['Shots_For'] = df['AST']; a_df['Shots_Ag'] = df['HST']
         a_df['Corn_For'] = df['AC']; a_df['Corn_Ag'] = df['HC']
         a_df['Fouls_For'] = df['AF']; a_df['Fouls_Ag'] = df['HF']
@@ -257,18 +307,16 @@ def scarica_dati(codice_lega):
         
         full_df = pd.concat([h_df, a_df]).sort_values(['Team','Date'])
         
-        # AGGIUNTO xG ALLE METRICHE
         metrics = ['Goals', 'xG', 'Shots', 'Corn', 'Fouls', 'Cards']
         for m in metrics:
             full_df[f'{m}_Att_Rat'] = np.where(full_df['IsHome']==1, full_df[f'{m}_For']/avgs[f'{m}_H'], full_df[f'{m}_For']/avgs[f'{m}_A'])
             full_df[f'{m}_Def_Rat'] = np.where(full_df['IsHome']==1, full_df[f'{m}_Ag']/avgs[f'{m}_A'], full_df[f'{m}_Ag']/avgs[f'{m}_H'])
             
-            # EWM (Weighted Average)
             full_df[f'W_{m}_Att'] = full_df.groupby('Team')[f'{m}_Att_Rat'].transform(lambda x: x.ewm(span=5, min_periods=1).mean())
             full_df[f'W_{m}_Def'] = full_df.groupby('Team')[f'{m}_Def_Rat'].transform(lambda x: x.ewm(span=5, min_periods=1).mean())
 
-        return full_df, df, avgs
-    except: return None, None, None
+        return full_df, df, avgs, elo_ratings
+    except: return None, None, None, None
 
 def get_live_matches(api_key, sport_key):
     url = f'https://api.the-odds-api.com/v4/sports/{sport_key}/odds/?apiKey={api_key}&regions={REGION}&markets={MARKET}'
@@ -282,7 +330,6 @@ def calculate_kelly_stake(bankroll, odds, probability, fraction=0.3):
     return round(bankroll * max(0, f) * fraction, 2)
 
 def calcola_1x2_dixon_coles(lam_h, lam_a):
-    # UPGRADE: MATRIX 10x10 (copre fino a 9 gol)
     range_max = 10
     mat = np.zeros((range_max, range_max))
     for i in range(range_max):
@@ -291,10 +338,7 @@ def calcola_1x2_dixon_coles(lam_h, lam_a):
     rho = 0.13
     mat[0,0] *= (1 - (lam_h * lam_a * rho)); mat[0,1] *= (1 + (lam_h * rho))
     mat[1,0] *= (1 + (lam_a * rho)); mat[1,1] *= (1 - rho)
-    
-    # Normalizza se la somma non è 1 (a causa del taglio a 10 gol)
     mat = mat / np.sum(mat)
-    
     p1 = np.sum(np.tril(mat,-1)); pX = np.trace(mat); p2 = np.sum(np.triu(mat,1))
     return (1/p1 if p1>0 else 99), (1/pX if pX>0 else 99), (1/p2 if p2>0 else 99)
 
@@ -306,16 +350,19 @@ def calcola_h2h_favorito(val_h, val_a):
     return p_h, p_a
 
 def find_team_stats_global(team_name, cache_dataframes):
-    for league_code, (df_weighted, _, averages) in cache_dataframes.items():
+    for league_code, (df_weighted, _, averages, elo_dict) in cache_dataframes.items():
         if df_weighted is None: continue
         team_stats = df_weighted[df_weighted['Team'] == team_name]
         if not team_stats.empty:
             last_row = team_stats.iloc[-1]
             last_5 = df_weighted[df_weighted['Team'] == team_name].tail(5)
             form_str = "-".join(last_5['FormChar'].tolist())
-            coeff = LEAGUE_COEFF.get(league_code, 0.65)
-            return last_row, coeff, averages, form_str, league_code
-    return None, 0, None, "N/A", "N/A"
+            
+            # Recupera Elo
+            elo_val = elo_dict.get(team_name, 1500)
+            
+            return last_row, elo_val, averages, form_str, league_code
+    return None, 1500, None, "N/A", "N/A"
 
 def generate_missing_data_terminal(h_team, a_team, h_found, a_found, bookie_odds):
     html = f"""<div class='terminal-missing'>"""
@@ -325,14 +372,21 @@ def generate_missing_data_terminal(h_team, a_team, h_found, a_found, bookie_odds
     html += f"\nODDS: 1:{bookie_odds['1']:.2f} X:{bookie_odds['X']:.2f} 2:{bookie_odds['2']:.2f}</div>"
     return html
 
-def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_prob, last_date_h, last_date_a, bankroll, h_form, a_form, league_code):
+def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_prob, last_date_h, last_date_a, bankroll, h_form, a_form, league_code, h_elo, a_elo):
     html = f"""<div class='terminal-box'>"""
     max_date = max(last_date_h, last_date_a)
     days_lag = (datetime.now() - max_date).days
+    
+    # ELO HEADER
+    html += f"<div class='term-header'>[ELO POWER] {h_team} ({int(h_elo)}) vs {a_team} ({int(a_elo)})</div>"
+    elo_diff = h_elo - a_elo
+    if elo_diff > 100: html += f"<span class='term-green'>>>> ELO FAVORITE: {h_team} (+{int(elo_diff)})</span>\n"
+    elif elo_diff < -100: html += f"<span class='term-green'>>>> ELO FAVORITE: {a_team} (+{int(abs(elo_diff))})</span>\n"
+    
     if days_lag > 14: html += f"<div class='term-warn'>⚠️ DATI VECCHI ({days_lag}gg)</div>\n"
     html += f"FORMA: {h_team:<15} [{h_form}] vs [{a_form}] {a_team}\n"
     
-    # 1X2 & VALUE
+    # 1X2
     html += f"\n<span class='term-section'>[ 1X2 & MONEY MANAGEMENT ]</span>\n"
     html += f"{'SEGNO':<6} | {'MY QUOTA':<10} | {'BOOKIE':<8} | {'VALUE':<8} | {'PUNTA €'}\n"
     html += "-"*60 + "\n"
@@ -350,18 +404,16 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
         stake_str = f"<span class='term-money'>€ {stake:.2f}</span>" if stake > 0 else "-"
         html += f"{segno:<6} | {my_q:<10.2f} | {book_q:<8.2f} | {val_str:<20} | {stake_str}\n"
 
-    # XG INSIGHTS (NUOVA SEZIONE)
+    # XG INSIGHTS
     xg_h, xg_a = exp_data['xG']
-    gl_h, gl_a = exp_data['RealGoals'] # Salvati a parte
-    html += f"\n<span class='term-section'>[ XG REALITY CHECK ]</span>\n"
+    gl_h, gl_a = exp_data['RealGoals']
+    html += f"\n<span class='term-section'>[ HYBRID ENGINE (Goals + xG + Elo) ]</span>\n"
     html += f"CASA -> Real Goals Exp: {gl_h:.2f} | xG Exp: {xg_h:.2f}\n"
     html += f"OSP  -> Real Goals Exp: {gl_a:.2f} | xG Exp: {xg_a:.2f}\n"
-    html += f"Blended Prediction used for Matrix: 50% Goals + 50% xG\n"
 
     # TESTA A TESTA
     html += f"\n<span class='term-section'>[ TESTA A TESTA ]</span>\n"
-    # Goals qui è quello ibrido
-    metrics_cfg = [("GOL (Hyb)", 'Goals'), ("CORNER", 'Corn'), ("TIRI", 'Shots'), ("FALLI", 'Fouls'), ("CARDS", 'Cards')]
+    metrics_cfg = [("GOL", 'Goals'), ("CORNER", 'Corn'), ("TIRI", 'Shots'), ("FALLI", 'Fouls'), ("CARDS", 'Cards')]
     for label, key in metrics_cfg:
         ph, pa = calcola_h2h_favorito(exp_data[key][0], exp_data[key][1])
         if ph > pa:
@@ -442,10 +494,10 @@ with st.sidebar:
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
     inspect_csv_mode = st.checkbox("🔍 ISPEZIONA NOMI CSV", value=False)
 
-st.title("SmartBet Pro 53.0 Evo")
-st.caption("Includes: Synthetic xG Engine | Matrix 10x10 | Hybrid Prediction")
+st.title("SmartBet Pro 54.0 Elo Engine")
+st.caption("Feature: Dynamic Elo Rating | Hybrid xG | 10x10 Matrix")
 
-# TABS PRINCIPALI (Solo 2 ora)
+# TABS PRINCIPALI
 tab_main, tab_cal = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO"])
 
 with tab_main:
@@ -458,7 +510,7 @@ with tab_main:
         if any(c in ['UCL','UEL','UECL'] for c in final_selection_codes):
             leagues_to_load = [k for k in ALL_LEAGUES.keys() if k not in ['UCL','UEL','UECL']]
         for code in leagues_to_load:
-            df, _, _ = scarica_dati(code)
+            df, _, _, _ = scarica_dati(code)
             if df is not None:
                 teams = sorted(df['Team'].unique())
                 with st.expander(f"Squadre in {ALL_LEAGUES[code]} ({code})"):
@@ -479,7 +531,7 @@ with tab_main:
             leagues_to_load = [k for k in ALL_LEAGUES.keys() if k not in ['UCL','UEL','UECL']] if has_cups else [k for k in final_selection_codes if k not in ['UCL','UEL','UECL']]
             
             status = st.empty()
-            status.text("Caricamento database statistici...")
+            status.text("Caricamento database statistici & Calcolo ELO...")
             for idx, code in enumerate(leagues_to_load): domestic_cache[code] = scarica_dati(code)
                 
             progress = st.progress(0)
@@ -503,8 +555,8 @@ with tab_main:
                         a_team = TEAM_MAPPING.get(a_raw, a_raw)
                         raw_date_obj, fmt_date_str = parse_date(m.get('commence_time', ''))
                         
-                        h_data, h_coeff, h_avgs, h_form, h_lg = find_team_stats_global(h_team, domestic_cache)
-                        a_data, a_coeff, a_avgs, a_form, a_lg = find_team_stats_global(a_team, domestic_cache)
+                        h_data, h_elo, h_avgs, h_form, h_lg = find_team_stats_global(h_team, domestic_cache)
+                        a_data, a_elo, a_avgs, a_form, a_lg = find_team_stats_global(a_team, domestic_cache)
                         
                         q1_b, qX_b, q2_b = 0,0,0
                         for b in m['bookmakers']:
@@ -524,30 +576,35 @@ with tab_main:
                             st.session_state['calendar_data'].append(item_err)
                             continue
 
-                        # --- CALCOLO MATRICE ESTESA (Goals + xG Hybrid) ---
+                        # --- CALCOLO MATRICE ESTESA (Goals + xG Hybrid + ELO BOOST) ---
                         exp_data = {} 
-                        # Lista completa inclusi xG
                         metrics = ['Goals', 'xG', 'Shots', 'Corn', 'Fouls', 'Cards']
                         for met in metrics:
                             h_att_r = h_data[f'W_{met}_Att']; h_def_r = h_data[f'W_{met}_Def']; h_lea_avg_h = h_avgs[f'{met}_H']
                             a_att_r = a_data[f'W_{met}_Att']; a_def_r = a_data[f'W_{met}_Def']; a_lea_avg_a = a_avgs[f'{met}_A']
                             
-                            f_h_coeff = h_coeff if code in ['UCL', 'UEL', 'UECL'] else 1.0
-                            f_a_coeff = a_coeff if code in ['UCL', 'UEL', 'UECL'] else 1.0
-                            
-                            val_h = h_att_r * a_def_r * h_lea_avg_h * f_h_coeff
-                            val_a = a_att_r * h_def_r * a_lea_avg_a * f_a_coeff
+                            val_h = h_att_r * a_def_r * h_lea_avg_h
+                            val_a = a_att_r * h_def_r * a_lea_avg_a
                             exp_data[met] = (val_h, val_a)
 
                         # SALVIAMO I DATI PURI PER DISPLAY
                         exp_data['RealGoals'] = exp_data['Goals'] 
 
-                        # APPLICHIAMO IL MIX (50% Goals + 50% xG) PER IL CALCOLO FINALE
-                        # Se xG non è disponibile (0.0), usa solo Goals
+                        # APPLICHIAMO IL MIX (50% Goals + 50% xG)
                         if exp_data['xG'][0] > 0 and exp_data['xG'][1] > 0:
                              mix_h = (exp_data['Goals'][0] * 0.5) + (exp_data['xG'][0] * 0.5)
                              mix_a = (exp_data['Goals'][1] * 0.5) + (exp_data['xG'][1] * 0.5)
-                             exp_data['Goals'] = (mix_h, mix_a) # Sovrascriviamo Goals con Hybrid
+                        else:
+                             mix_h, mix_a = exp_data['Goals']
+
+                        # --- ELO BOOST ENGINE ---
+                        # Se la differenza Elo è alta, aumentiamo la probabilità di gol della favorita
+                        elo_diff = h_elo - a_elo
+                        elo_factor = 1.05 # 5% boost per ogni step significativo
+                        if elo_diff > 100: mix_h *= elo_factor
+                        elif elo_diff < -100: mix_a *= elo_factor
+                        
+                        exp_data['Goals'] = (mix_h, mix_a) # Sovrascriviamo Goals con Hybrid+Elo
 
                         if q1_b == 0: continue
                         my_q1, my_qX, my_q2 = calcola_1x2_dixon_coles(exp_data['Goals'][0], exp_data['Goals'][1])
@@ -557,7 +614,7 @@ with tab_main:
                             h_team, a_team, exp_data, 
                             {'1':q1_b,'X':qX_b,'2':q2_b}, {'1':roi_1,'X':roi_X,'2':roi_2},
                             min_prob_val, h_data['Date'], a_data['Date'], bankroll_input, h_form, a_form,
-                            code
+                            code, h_elo, a_elo
                         )
                         
                         item_ok = {'label': f"✅ {fmt_date_str} | {h_team} vs {a_team} ({code})", 'html': html_block, 'raw_date': raw_date_obj}
