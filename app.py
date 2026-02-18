@@ -9,12 +9,11 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro 52.1", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 52.2 Lite", page_icon="🛡️", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
 MARKET = 'h2h'
-TRACKER_FILE = "smartbet_portfolio.csv"
 
 # CSS Custom
 st.markdown("""
@@ -194,71 +193,6 @@ def parse_date(iso_date_str):
         return dt_ita.date(), dt_ita.strftime("%d/%m %H:%M")
     except:
         return datetime.now().date(), "Oggi"
-
-# --- TRACKER FUNCTIONS ---
-def load_portfolio():
-    cols = ["Date", "League", "Match", "Bet", "Odds", "Stake", "Result", "Profit", "RawDate", "Pinned"]
-    if os.path.exists(TRACKER_FILE):
-        df = pd.read_csv(TRACKER_FILE)
-        if "Pinned" not in df.columns: df["Pinned"] = False
-        initial_len = len(df)
-        df.drop_duplicates(subset=['Match', 'Bet', 'RawDate'], keep='last', inplace=True)
-        if len(df) < initial_len: df.to_csv(TRACKER_FILE, index=False)
-        return df
-    return pd.DataFrame(columns=cols)
-
-def save_bet_to_csv(date, league, match, bet, odds, stake, raw_date):
-    df = load_portfolio()
-    raw_date_str = str(raw_date)
-    is_duplicate = not df[
-        (df['Match'] == match) & (df['Bet'] == bet) & (df['RawDate'].astype(str) == raw_date_str)
-    ].empty
-    
-    if is_duplicate: return False 
-    
-    new_row = pd.DataFrame([{
-        "Date": date, "League": league, "Match": match, "Bet": bet, 
-        "Odds": odds, "Stake": stake, "Result": "Pending", "Profit": 0.0, "RawDate": raw_date, "Pinned": False
-    }])
-    df = pd.concat([df, new_row], ignore_index=True)
-    df.to_csv(TRACKER_FILE, index=False)
-    return True
-
-def check_results_automatic(portfolio_df, cache_dataframes):
-    updated = False
-    for idx, row in portfolio_df.iterrows():
-        if row['Result'] != 'Pending': continue
-        match_date = pd.to_datetime(row['RawDate']).date()
-        if match_date > datetime.now().date(): continue
-        
-        h_team_bet = row['Match'].split(" vs ")[0]
-        
-        for code, data_tuple in cache_dataframes.items():
-            if data_tuple is None: continue
-            df_full, df_orig, _ = data_tuple
-            match_row = df_orig[
-                (df_orig['Date'].dt.date == match_date) & 
-                ((df_orig['HomeTeam'] == TEAM_MAPPING.get(h_team_bet, h_team_bet)) | (df_orig['HomeTeam'] == h_team_bet))
-            ]
-            if not match_row.empty:
-                res = match_row.iloc[0]
-                if pd.isna(res['FTHG']): continue
-                hg = int(res['FTHG']); ag = int(res['FTAG'])
-                win = False
-                bet_type = row['Bet']
-                if "Ov 1.5" in bet_type and (hg+ag) > 1.5: win = True
-                elif "Ov 2.5" in bet_type and (hg+ag) > 2.5: win = True
-                elif "1" in bet_type and hg > ag: win = True
-                elif "X" in bet_type and hg == ag: win = True
-                elif "2" in bet_type and ag > hg: win = True
-                elif "Gol" in bet_type and hg > 0 and ag > 0: win = True
-                
-                portfolio_df.at[idx, 'Result'] = "WIN" if win else "LOSS"
-                portfolio_df.at[idx, 'Profit'] = (row['Stake'] * row['Odds'] - row['Stake']) if win else -row['Stake']
-                updated = True
-                break
-    if updated: portfolio_df.to_csv(TRACKER_FILE, index=False)
-    return portfolio_df
 
 @st.cache_data(ttl=3600)
 def scarica_dati(codice_lega):
@@ -468,11 +402,11 @@ with st.sidebar:
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
     inspect_csv_mode = st.checkbox("🔍 ISPEZIONA NOMI CSV", value=False)
 
-st.title("SmartBet Pro 52.1")
-st.caption("Fix: Widget Duplicate ID Crash Solved")
+st.title("SmartBet Pro 52.2 Lite")
+st.caption("Version: No-Register / Scanner Only")
 
-# TABS PRINCIPALI
-tab_main, tab_cal, tab_tracker = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO", "💰 REGISTRO"])
+# TABS PRINCIPALI (Solo 2 ora)
+tab_main, tab_cal = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO"])
 
 with tab_main:
     start_analisys = st.button("🚀 CERCA VALUE BETS", type="primary", use_container_width=True)
@@ -568,14 +502,6 @@ with tab_main:
                         my_q1, my_qX, my_q2 = calcola_1x2_dixon_coles(exp_data['Goals'][0], exp_data['Goals'][1])
                         roi_1 = ((1/my_q1)*q1_b)-1; roi_X = ((1/my_qX)*qX_b)-1; roi_2 = ((1/my_q2)*q2_b)-1
                         
-                        # --- AUTO SNIPER LOGIC ---
-                        segni_check = [('1', roi_1, q1_b, 1/my_q1), ('X', roi_X, qX_b, 1/my_qX), ('2', roi_2, q2_b, 1/my_q2)]
-                        for s_lbl, s_roi, s_odd, s_prob in segni_check:
-                            if s_roi >= 0.15 and s_odd <= 4.0 and s_prob >= min_prob_val:
-                                stake = calculate_kelly_stake(bankroll_input, s_odd, s_prob)
-                                save_bet_to_csv(raw_date_obj, league_name, f"{h_team} vs {a_team}", s_lbl, s_odd, stake, raw_date_obj)
-                        # -------------------------
-
                         html_block = generate_complete_terminal(
                             h_team, a_team, exp_data, 
                             {'1':q1_b,'X':qX_b,'2':q2_b}, {'1':roi_1,'X':roi_X,'2':roi_2},
@@ -588,7 +514,7 @@ with tab_main:
                         st.session_state['calendar_data'].append(item_ok)
 
             status.empty()
-            st.success("Analisi Completata. Le giocate TOP sono state salvate nel Registro!")
+            st.success("Analisi Completata.")
             
             if show_mapping_errors and st.session_state['missing_log']:
                 st.warning(f"⚠️ Debug: {len(st.session_state['missing_log'])} squadre non trovate.")
@@ -600,27 +526,10 @@ with tab_main:
             tabs = st.tabs(active_leagues)
             for i, l in enumerate(active_leagues):
                 with tabs[i]:
-                    # QUI ERA L'ERRORE: ORA C'È ENUMERATE(IDX)
                     for idx, m in enumerate(st.session_state['results_data'][l]):
                         with st.expander(m['label']):
                             st.markdown(m['html'], unsafe_allow_html=True)
-                            if 'meta' in m:
-                                st.markdown("---")
-                                st.markdown("📝 **Crea la tua Giocata:**")
-                                c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
-                                # CHIAVE UNIVOCA FIXATA: usa idx
-                                mid = f"bet_{l}_{idx}"
-                                outcomes = ["1", "X", "2", "Ov 1.5", "Un 1.5", "Ov 2.5", "Un 2.5", "Gol", "NoGol", "1X", "X2"]
-                                user_bet = c1.selectbox("Esito", outcomes, key=f"sel_{mid}")
-                                def_odd = 2.0
-                                if user_bet == '1': def_odd = m['meta']['q']['1']
-                                elif user_bet == 'X': def_odd = m['meta']['q']['X']
-                                elif user_bet == '2': def_odd = m['meta']['q']['2']
-                                user_odd = c2.number_input("Quota", value=def_odd, step=0.01, key=f"odd_{mid}")
-                                user_stake = c3.number_input("€", value=2.0, step=0.5, key=f"stk_{mid}")
-                                if c4.button("💾", key=f"btn_{mid}"):
-                                    save_bet_to_csv(m['raw_date'], l, f"{m['meta']['h']} vs {m['meta']['a']}", user_bet, user_odd, user_stake, m['raw_date'])
-                                    st.toast("Salvato!")
+                            # RIMOSSA LA SEZIONE DI SALVATAGGIO
         else: st.write("Nessun risultato.")
 
 # TAB CALENDARIO
@@ -636,66 +545,3 @@ with tab_cal:
                     with st.expander(dm['label']): st.markdown(dm['html'], unsafe_allow_html=True)
             else: st.warning("Nessuna partita.")
     else: st.info("Nessun dato.")
-
-# TAB TRACKER (MANAGER MODE)
-with tab_tracker:
-    st.markdown("### 📊 Registro & Manager")
-    c1, c2 = st.columns(2)
-    with c1:
-        if os.path.exists(TRACKER_FILE):
-            with open(TRACKER_FILE, "rb") as f:
-                st.download_button("📥 SCARICA BACKUP", f, file_name="smartbet_portfolio.csv", mime="text/csv")
-    with c2:
-        uploaded_file = st.file_uploader("📂 RIPRISTINA", type="csv")
-        if uploaded_file is not None:
-            pd.read_csv(uploaded_file).to_csv(TRACKER_FILE, index=False)
-            st.success("Ripristinato!")
-
-    pf = load_portfolio()
-    if pf.empty:
-        st.info("Nessuna giocata.")
-    else:
-        st.markdown("#### Modifica Giocate")
-        if "Delete" not in pf.columns: pf["Delete"] = False
-        edited_pf = st.data_editor(
-            pf,
-            column_config={
-                "Pinned": st.column_config.CheckboxColumn("📌 Fix", help="Blocca riga", default=False),
-                "Delete": st.column_config.CheckboxColumn("❌ Del", help="Elimina riga", default=False),
-                "Result": st.column_config.SelectboxColumn("Result", options=["WIN", "LOSS", "Pending"]),
-            },
-            disabled=["Date", "League", "Match", "Bet", "Odds", "Stake", "Profit"],
-            hide_index=True,
-            use_container_width=True
-        )
-        
-        c_save, c_refresh = st.columns(2)
-        if c_save.button("💾 APPLICA MODIFICHE"):
-            final_df = edited_pf[ (~edited_pf['Delete']) | (edited_pf['Pinned']) ].copy()
-            final_df.drop(columns=['Delete'], inplace=True, errors='ignore')
-            final_df.to_csv(TRACKER_FILE, index=False)
-            st.success("Aggiornato!"); st.rerun()
-            
-        if c_refresh.button("🔄 AUTO-GRADING"):
-            with st.spinner("Controllo..."):
-                domestic_cache = {}
-                for k in ALL_LEAGUES.keys(): 
-                    if k not in ['UCL','UEL','UECL']: domestic_cache[k] = scarica_dati(k)
-                current_df = load_portfolio()
-                updated_df = check_results_automatic(current_df, domestic_cache)
-                st.success("Fatto!"); st.rerun()
-
-        wins = len(pf[pf['Result'] == 'WIN']); losses = len(pf[pf['Result'] == 'LOSS'])
-        profit = pf['Profit'].sum(); roi = (profit / pf['Stake'].sum() * 100) if pf['Stake'].sum() > 0 else 0
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Giocate", len(pf)); m2.metric("W/L", f"{wins}/{losses}")
-        m3.metric("Profitto", f"€ {profit:.2f}", delta_color="normal")
-        m4.metric("ROI", f"{roi:.1f}%")
-        
-        if st.button("🗑️ RESET TOTALE"):
-            if os.path.exists(TRACKER_FILE):
-                df_reset = pd.read_csv(TRACKER_FILE)
-                if "Pinned" in df_reset.columns: df_reset = df_reset[df_reset['Pinned'] == True]
-                else: df_reset = df_reset.iloc[0:0]
-                df_reset.to_csv(TRACKER_FILE, index=False)
-                st.warning("Reset effettuato."); st.rerun()
