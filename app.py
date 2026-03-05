@@ -300,12 +300,13 @@ def find_team_stats_global(team_name, cache_dataframes):
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
+import re
 
 def fetch_live_news(h_team, a_team):
-    """Cerca le ultime notizie su Google News in modo nativo e gratuito"""
+    """Estrae titoli E riassunti puliti da Google News per match specifico"""
     try:
-        # Crea la query di ricerca: "Tottenham OR Crystal Palace injury OR lineup when:1d"
-        query = urllib.parse.quote(f'"{h_team}" OR "{a_team}" injury OR lineup OR team news when:1d')
+        # Ricerca restrittiva: DEVE contenere entrambe le squadre e parole chiave specifiche
+        query = urllib.parse.quote(f'"{h_team}" "{a_team}" (injury OR missing OR lineup OR out) when:1d')
         url = f"https://news.google.com/rss/search?q={query}&hl=en-GB&gl=GB&ceid=GB:en"
         
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -314,28 +315,30 @@ def fetch_live_news(h_team, a_team):
             
         root = ET.fromstring(xml_data)
         headlines = []
-        for item in root.findall('.//item')[:5]: # Prende solo le prime 5 notizie
-            title = item.find('title').text
-            headlines.append(f"- {title}")
+        for item in root.findall('.//item')[:4]: # Prime 4 notizie ultra-rilevanti
+            title = item.find('title').text if item.find('title') is not None else ""
+            desc = item.find('description').text if item.find('description') is not None else ""
+            # Pulisce i tag HTML per passare testo puro all'AI
+            desc_clean = re.sub('<[^<]+>', '', desc).strip()
+            headlines.append(f"TITOLO: {title}\nDETTAGLIO: {desc_clean}")
             
         if not headlines:
-            return "Nessuna notizia di rilievo trovata nelle ultime 24 ore."
-        return "\n".join(headlines)
+            return "Nessuna notizia specifica trovata per questo match nelle ultime 24 ore."
+        return "\n---\n".join(headlines)
     except Exception as e:
-        return f"Impossibile recuperare le notizie in diretta ({str(e)})."
+        return f"Errore estrazione feed: {str(e)}"
 
 def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi_1x2, mq1, mqx, mq2):
     try:
         genai.configure(api_key=gemini_api_key)
         
-        # Estrazione notizie in tempo reale tramite Python (aggira i blocchi AI)
         live_news = fetch_live_news(h_team, a_team)
         
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         safe_models = [m for m in available_models if '2.0' not in m and 'vision' not in m]
         
         if not safe_models:
-            return f"❌ Errore: Nessun modello gratuito compatibile trovato."
+            return f"❌ Errore: Nessun modello gratuito trovato."
             
         model_name = safe_models[0]
         for m in safe_models:
@@ -345,27 +348,21 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
                 
         model = genai.GenerativeModel(model_name=model_name)
         
-        prompt = f"""Agisci come un Risk Manager professionista di betting sportivo.
-Analizza la partita {h_team} vs {a_team} in programma oggi.
-I nostri modelli matematici hanno prodotto questi numeri:
-- Quote Reali (1X2): 1 ({mq1:.2f}), X ({mqx:.2f}), 2 ({mq2:.2f})
-- Vantaggio Matematico (ROI): 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)
+        prompt = f"""Agisci come un Risk Manager professionista.
+Analizza {h_team} vs {a_team} in programma oggi.
+Vantaggio Matematico (ROI): 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)
 
-IL MIO SISTEMA HA GIÀ ESTRATTO LE NOTIZIE DELLE ULTIME 24 ORE DA GOOGLE NEWS:
+FEED NEWS ESTRATTO (Titoli e Dettagli):
 {live_news}
 
-Esegui questa procedura rigorosa:
-1. Leggi i titoli estratti qui sopra. Cerca assenze confermate, infortuni o turnover.
-2. Se i titoli parlano di infortuni o assenze per le due squadre, valuta l'impatto.
-3. Se non ci sono notizie o i titoli sono irrilevanti, dichiara: "Nessuna anomalia confermata dai feed odierni".
+Regola zero: Se i testi contengono solo titoli clickbait (es. "injury update") ma NON nominano giocatori specifici infortunati o squalificati, consideralo RUMORE DI FONDO e dichiaralo esplicitamente. Non fare ipotesi.
 
-Restituisci il report usando ESATTAMENTE questo schema:
+Estrai il segnale dal rumore usando ESATTAMENTE questo formato:
+- IL FATTO: (Una frase secca su chi manca o gioca. Se non ci sono nomi specifici nel testo, scrivi: "Assente ogni anomalia confermata. Solo rumore mediatico").
+- IL SEGNALE: (Perché è importante? Come altera il nostro ROI calcolato?).
+- IL CONTRO-CANTO: (Qual è il bias dei media su questo match? Azione: Conferma Bet, No Bet, Switch).
 
-- IL FATTO: (Sintesi delle notizie estratte sopra. Solo fatti).
-- IL SEGNALE: (Come queste specifiche informazioni cambiano le carte in tavola per il nostro vantaggio matematico).
-- IL CONTRO-CANTO: (Azione Risk Management finale: Conferma Bet, No Bet, Switch).
-
-Tono oggettivo, sintetico e privo di moralismi."""
+Tono oggettivo, sintetico, privo di moralismi."""
 
         response = model.generate_content(prompt)
         return response.text
