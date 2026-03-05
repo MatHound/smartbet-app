@@ -301,8 +301,23 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
     try:
         genai.configure(api_key=gemini_api_key)
         
-        # Forziamo la versione 1.5 Flash che ha il Free Tier garantito e usiamo la sintassi base
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # 1. Chiediamo a Google la lista esatta dei TUOI modelli attivi
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        # 2. Escludiamo i modelli 2.0 (bloccati a quota 0 nel Free Tier EU) e i modelli vision
+        safe_models = [m for m in available_models if '2.0' not in m and 'vision' not in m]
+        
+        if not safe_models:
+            return f"❌ Errore: Nessun modello gratuito compatibile trovato per questa chiave. Modelli rilevati: {available_models}"
+            
+        # 3. Selezioniamo il miglior modello 1.5 disponibile (o il primo della lista sicura)
+        model_name = safe_models[0]
+        for m in safe_models:
+            if '1.5-flash' in m:
+                model_name = m
+                break
+                
+        model = genai.GenerativeModel(model_name)
         
         prompt = f"""Agisci come un Risk Manager professionista di betting sportivo.
 Analizza la partita {h_team} vs {a_team} di oggi.
@@ -311,11 +326,11 @@ I nostri modelli matematici hanno prodotto questi numeri:
 - Vantaggio Matematico (ROI): 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)
 
 Esegui questa procedura rigorosa:
-1. Scansiona le fonti globali e seleziona SOLO le 3 notizie che avranno un impatto reale e odierno sulla gara (infortuni di titolari inamovibili, squalifiche pesanti). Ignora il gossip e la cronaca spicciola.
+1. Scansiona le fonti globali e seleziona SOLO le notizie che avranno un impatto reale e odierno sulla gara (infortuni di titolari inamovibili, squalifiche pesanti). Ignora il gossip e la cronaca spicciola.
 2. Per ogni notizia, usa questo formato schematico:
 
 - IL FATTO: Una frase secca su cosa è successo. (Se non c'è nulla di impattante, scrivi "Nessuna anomalia rilevante riportata").
-- IL SEGNALE: Perché è importante? Analizza gli effetti di secondo e terzo ordine (come impatta sui nostri calcoli matematici).
+- IL SEGNALE: Perché è importante? Analizza gli effetti di secondo e terzo ordine sui nostri calcoli.
 - IL CONTRO-CANTO: Qual è il bias narrativo dei media mainstream su questo match? Cosa non mi stanno dicendo? (Aggiungi la tua azione di Risk Management: Conferma Bet, No Bet, Switch Mercato).
 
 Il tuo tono deve essere oggettivo, sintetico e privo di moralismi. Il mio obiettivo è avere un vantaggio informativo."""
@@ -323,7 +338,7 @@ Il tuo tono deve essere oggettivo, sintetico e privo di moralismi. Il mio obiett
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        return f"❌ Errore API: La connessione AI è stata bloccata. Dettaglio tecnico: {str(e)}"
+        return f"❌ Errore API: La connessione AI è fallita. Dettaglio: {str(e)}"
 
 # ==============================================================================
 # GENERATORE UI TERMINALE
