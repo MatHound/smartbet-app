@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro 59.0 Live Fatigue", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 60.0 Final Fix", page_icon="⚡", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -19,9 +19,7 @@ HISTORY_FILE = "smartbet_odds_history.csv"
 # CSS Custom (Terminal Style)
 st.markdown("""
 <style>
-    .stProgress { display: none; }
     .terminal-box { font-family: "Courier New", Courier, monospace; background-color: #0c0c0c; color: #cccccc; padding: 15px; border-radius: 5px; border: 1px solid #333; white-space: pre; overflow-x: auto; font-size: 0.9em; margin-bottom: 10px; }
-    .terminal-missing { font-family: "Courier New", Courier, monospace; background-color: #1a1a1a; color: #777; padding: 15px; border-radius: 5px; border: 1px solid #550000; white-space: pre; overflow-x: auto; font-size: 0.9em; margin-bottom: 10px; }
     .term-header { color: #FFD700; font-weight: bold; } 
     .term-section { color: #00FFFF; font-weight: bold; margin-top: 10px; display: block; } 
     .term-green { color: #00FF00; font-weight: bold; } 
@@ -35,58 +33,36 @@ st.markdown("""
 
 # Session State
 if 'results_data' not in st.session_state: st.session_state['results_data'] = {}
-if 'calendar_data' not in st.session_state: st.session_state['calendar_data'] = []
-if 'missing_log' not in st.session_state: st.session_state['missing_log'] = []
 
 # --- DATABASE LEGHE ---
 LEAGUE_GROUPS = {
-    "🇪🇺 Coppe Europee": ['UCL', 'UEL', 'UECL'],
     "🏆 Top 5 (Tier 1)": ['I1', 'E0', 'SP1', 'D1', 'F1'],
     "⚽ Europe Tier 2": ['N1', 'P1', 'B1', 'T1', 'SC0', 'G1', 'A1', 'SW1'],
-    "📉 Leghe Minori (EU)": ['I2', 'E1', 'E2', 'E3', 'EC', 'D2', 'SP2', 'F2', 'SC1', 'SC2', 'SC3'],
-    "🌎 Leghe Extra (Resto del Mondo)": ['ARG', 'BRA', 'CHN', 'DNK', 'FIN', 'IRL', 'JPN', 'MEX', 'NOR', 'POL', 'ROU', 'RUS', 'SWE', 'USA']
+    "📉 Leghe Minori": ['I2', 'E1', 'E2', 'E3', 'EC', 'D2', 'SP2', 'F2', 'SC1', 'SC2', 'SC3'],
+    "🌎 Extra": ['ARG', 'BRA', 'CHN', 'DNK', 'FIN', 'IRL', 'JPN', 'MEX', 'NOR', 'POL', 'ROU', 'RUS', 'SWE', 'USA']
 }
-COMPACT_LEAGUES = LEAGUE_GROUPS["⚽ Europe Tier 2"] + LEAGUE_GROUPS["📉 Leghe Minori (EU)"] + LEAGUE_GROUPS["🌎 Leghe Extra (Resto del Mondo)"]
 
 ALL_LEAGUES = {
-    'UCL': '🇪🇺 Champions League', 'UEL': '🇪🇺 Europa League', 'UECL': '🇪🇺 Conference League',
-    'I1': '🇮🇹 Serie A', 'E0': '🇬🇧 Premier League', 'SP1': '🇪🇸 La Liga', 'D1': '🇩🇪 Bundesliga', 'F1': '🇫🇷 Ligue 1',
-    'N1': '🇳🇱 Eredivisie', 'P1': '🇵🇹 Primeira Liga', 'B1': '🇧🇪 Pro League', 'T1': '🇹🇷 Super Lig',
-    'SC0': '🏴󠁧󠁢󠁳󠁣󠁴󠁿 Premiership', 'G1': '🇬🇷 Super League', 'A1': '🇦🇹 Bundesliga', 'SW1': '🇨🇭 Super League',
-    'I2': '🇮🇹 Serie B', 'E1': '🇬🇧 Championship', 'E2': '🇬🇧 League One', 'E3': '🇬🇧 League Two', 'EC': '🇬🇧 National League',
-    'D2': '🇩🇪 Bundesliga 2', 'SP2': '🇪🇸 Segunda', 'F2': '🇫🇷 Ligue 2',
-    'SC1': '🏴󠁧󠁢󠁳󠁣󠁴󠁿 Championship', 'SC2': '🏴󠁧󠁢󠁳󠁣󠁴󠁿 League One', 'SC3': '🏴󠁧󠁢󠁳󠁣󠁴󠁿 League Two',
-    'ARG': '🇦🇷 Argentina Primera', 'BRA': '🇧🇷 Brazil Serie A', 'CHN': '🇨🇳 China Super League',
-    'DNK': '🇩🇰 Denmark Superliga', 'FIN': '🇫🇮 Finland Veikkausliiga', 'IRL': '🇮🇪 Ireland Premier',
-    'JPN': '🇯🇵 Japan J-League', 'MEX': '🇲🇽 Mexico Liga MX', 'NOR': '🇳🇴 Norway Eliteserien',
-    'POL': '🇵🇱 Poland Ekstraklasa', 'ROU': '🇷🇴 Romania Liga 1', 'RUS': '🇷🇺 Russia Premier',
-    'SWE': '🇸🇪 Sweden Allsvenskan', 'USA': '🇺🇸 USA MLS'
+    'I1': 'Serie A', 'E0': 'Premier League', 'SP1': 'La Liga', 'D1': 'Bundesliga', 'F1': 'Ligue 1',
+    'N1': 'Eredivisie', 'P1': 'Primeira Liga', 'B1': 'Pro League', 'T1': 'Super Lig',
+    'SC0': 'Premiership', 'G1': 'Super League', 'A1': 'Bundesliga AT', 'SW1': 'Super League CH'
 }
 
 API_MAPPING = {
-    'UCL': 'soccer_uefa_champs_league', 'UEL': 'soccer_uefa_europa_league', 'UECL': 'soccer_uefa_euro_conference',
-    'I1': 'soccer_italy_serie_a', 'I2': 'soccer_italy_serie_b', 'E0': 'soccer_epl', 'E1': 'soccer_efl_champ', 'E2': 'soccer_england_league1', 'E3': 'soccer_england_league2',
-    'SP1': 'soccer_spain_la_liga', 'SP2': 'soccer_spain_segunda_division', 'D1': 'soccer_germany_bundesliga', 'D2': 'soccer_germany_bundesliga2',
-    'F1': 'soccer_france_ligue_one', 'F2': 'soccer_france_ligue_two', 'N1': 'soccer_netherlands_eredivisie', 'P1': 'soccer_portugal_primeira_liga', 
-    'B1': 'soccer_belgium_pro_league', 'T1': 'soccer_turkey_super_league', 'SC0': 'soccer_spfl_prem', 'G1': 'soccer_greece_super_league', 
-    'A1': 'soccer_austria_bundesliga', 'SW1': 'soccer_switzerland_superleague', 'ARG': 'soccer_argentina_primera', 'BRA': 'soccer_brazil_campeonato', 
-    'CHN': 'soccer_china_superleague', 'DNK': 'soccer_denmark_superliga', 'FIN': 'soccer_finland_veikkausliiga', 'IRL': 'soccer_ireland_premier_division',
-    'JPN': 'soccer_japan_j_league', 'MEX': 'soccer_mexico_ligamx', 'NOR': 'soccer_norway_eliteserien', 'POL': 'soccer_poland_ekstraklasa', 'SWE': 'soccer_sweden_allsvenskan', 'USA': 'soccer_usa_mls'
+    'I1': 'soccer_italy_serie_a', 'E0': 'soccer_epl', 'SP1': 'soccer_spain_la_liga', 
+    'D1': 'soccer_germany_bundesliga', 'F1': 'soccer_france_ligue_one'
 }
 
-LEAGUE_COEFF = {
-    'E0': 1.00, 'SP1': 0.96, 'I1': 0.94, 'D1': 0.92, 'F1': 0.88, 'P1': 0.82, 'N1': 0.80, 'B1': 0.75, 'T1': 0.70, 'E1': 0.70, 'F2': 0.65,
-    'SC0': 0.68, 'A1': 0.68, 'G1': 0.65, 'SW1': 0.65, 'D2': 0.65, 'I2': 0.60, 'SP2': 0.60, 'E2': 0.55, 'E3': 0.50, 'EC': 0.45,
-    'SC1': 0.50, 'SC2': 0.45, 'SC3': 0.40, 'BRA': 0.75, 'ARG': 0.70, 'MEX': 0.65, 'USA': 0.65, 'JPN': 0.60
-}
+LEAGUE_COEFF = {'E0': 1.0, 'SP1': 0.96, 'I1': 0.94, 'D1': 0.92, 'F1': 0.88}
 
 TEAM_MAPPING = {
     'Austria Wien': 'Austria Vienna', 'FC Blau-Weiß Linz': 'BW Linz', 'Grazer AK': 'GAK',
     'Hartberg': 'Hartberg', 'LASK': 'LASK Linz', 'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg',
     'Rapid Wien': 'Rapid Vienna', 'Rheindorf Altach': 'Altach', 'Ried': 'Ried',
     'Sturm Graz': 'Sturm Graz', 'SK Sturm Graz': 'Sturm Graz', 'WSG Tirol': 'Tirol', 'Wolfsberger AC': 'Wolfsberger',
-    'Young Boys': 'Young Boys', 'Basel': 'Basel', '': 'Lausanne', 'Lugano': 'Lugano', 'Luzern': 'Luzern',
-    'Sion': 'Sion', 'FC St Gallen': 'St Gallen', 'Thun': 'Thun', 'Winterthur': 'Winterthur', 'Zurich': 'Zurich', 'Grasshopper': 'Grasshoppers', 'Servette': 'Servette',
+    'Young Boys': 'Young Boys', 'Basel': 'Basel', 'FC Lausanne-Sport': 'Lausanne',
+    'Lugano': 'Lugano', 'Luzern': 'Luzern', 'Sion': 'Sion', 'FC St Gallen': 'St Gallen', 'Thun': 'Thun',
+    'Winterthur': 'Winterthur', 'Zurich': 'Zurich', 'Grasshopper': 'Grasshoppers', 'Servette': 'Servette',
     'Atlético Madrid': 'Ath Madrid', 'Espanyol': 'Espanol', 'RCD Espanyol': 'Espanol', 'Real Sociedad B': 'Sociedad B',
     'Südtirol': 'Sudtirol', 'US Catanzaro 1929': 'Catanzaro', 'SC Preußen Münster': 'Preussen Munster', 'VfL Bochum': 'Bochum', 
     '1. FC Heidenheim': 'Heidenheim', 'Holstein Kiel': 'Holstein Kiel', 'FC St. Pauli': 'St Pauli',
@@ -135,183 +111,123 @@ TEAM_MAPPING = {
 }
 
 # ==============================================================================
-# ENGINE CORE FUNCTIONS
+# FUNZIONI CORE (REQUIRED)
 # ==============================================================================
+
+def parse_date(iso_str):
+    try:
+        dt = datetime.strptime(iso_str, "%Y-%m-%dT%H:%M:%SZ")
+        dt_it = dt + timedelta(hours=1) 
+        return dt_it.date(), dt_it.strftime("%d/%m %H:%M")
+    except:
+        return datetime.now().date(), "Oggi"
 
 def load_odds_history():
     if os.path.exists(HISTORY_FILE): return pd.read_csv(HISTORY_FILE)
     return pd.DataFrame(columns=["MatchID", "Date", "Home", "Away", "Open_1", "Open_X", "Open_2", "Last_Update"])
 
-def save_odds_history(df): df.to_csv(HISTORY_FILE, index=False)
-
-def check_dropping_odds(h_team, a_team, date_str, current_1, current_X, current_2):
-    df_hist = load_odds_history()
-    match_id = f"{h_team}_{a_team}_{date_str}"
-    match_row = df_hist[df_hist["MatchID"] == match_id]
-    drop_alert = ""
-    if match_row.empty:
-        new_row = pd.DataFrame([{"MatchID": match_id, "Date": date_str, "Home": h_team, "Away": a_team, "Open_1": current_1, "Open_X": current_X, "Open_2": current_2, "Last_Update": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}])
-        df_hist = pd.concat([df_hist, new_row], ignore_index=True)
-        save_odds_history(df_hist)
+def check_dropping_odds(h_team, a_team, date_str, c1, cX, c2):
+    df_h = load_odds_history()
+    m_id = f"{h_team}_{a_team}_{date_str}"
+    row = df_h[df_h["MatchID"] == m_id]
+    alert = ""
+    if row.empty:
+        new = pd.DataFrame([{"MatchID": m_id, "Date": date_str, "Home": h_team, "Away": a_team, "Open_1": c1, "Open_X": cX, "Open_2": c2, "Last_Update": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}])
+        df_h = pd.concat([df_h, new], ignore_index=True)
+        df_h.to_csv(HISTORY_FILE, index=False)
     else:
-        o1, o2 = float(match_row.iloc[0]["Open_1"]), float(match_row.iloc[0]["Open_2"])
-        if o1 > 0 and current_1 > 0:
-            d1 = ((o1 - current_1) / o1) * 100
-            if d1 >= 10.0: drop_alert += f"📉 DROP 1: {o1:.2f}->{current_1:.2f} (-{d1:.1f}%)\n"
-        if o2 > 0 and current_2 > 0:
-            d2 = ((o2 - current_2) / o2) * 100
-            if d2 >= 10.0: drop_alert += f"📉 DROP 2: {o2:.2f}->{current_2:.2f} (-{d2:.1f}%)\n"
-        df_hist.loc[df_hist["MatchID"] == match_id, "Last_Update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        save_odds_history(df_hist)
-    return drop_alert
+        o1, o2 = float(row.iloc[0]["Open_1"]), float(row.iloc[0]["Open_2"])
+        if o1 > 0 and c1 > 0 and ((o1-c1)/o1)*100 >= 10: alert += f"📉 DROP 1: {o1:.2f}->{c1:.2f} (-{((o1-c1)/o1)*100:.1f}%)\n"
+        if o2 > 0 and c2 > 0 and ((o2-c2)/o2)*100 >= 10: alert += f"📉 DROP 2: {o2:.2f}->{c2:.2f} (-{((o2-c2)/o2)*100:.1f}%)\n"
+    return alert
 
-def calculate_elo_updates(df_matches, league_code):
-    base_rating = 1500; coeff = LEAGUE_COEFF.get(league_code, 0.60)
-    if coeff >= 0.90: base_rating = 1600 
-    elif coeff <= 0.55: base_rating = 1350
-    elo_dict = {}; K = 32
-    teams = set(df_matches['HomeTeam'].unique()) | set(df_matches['AwayTeam'].unique())
-    for t in teams: elo_dict[t] = base_rating
-    for _, row in df_matches.iterrows():
-        h, a, res = row['HomeTeam'], row['AwayTeam'], row['Result']
+def calculate_elo_updates(df, league_code):
+    base = 1500
+    elo_dict = {}
+    teams = set(df['HomeTeam'].unique()) | set(df['AwayTeam'].unique())
+    for t in teams: elo_dict[t] = base
+    for _, r in df.iterrows():
+        h, a, res = r['HomeTeam'], r['AwayTeam'], r['Result']
         rh, ra = elo_dict[h], elo_dict[a]
-        eh = 1 / (1 + 10 ** ((ra - rh) / 400)); ea = 1 / (1 + 10 ** ((rh - ra) / 400))
-        sh, sa = (1.0, 0.0) if res == 'H' else (0.0, 1.0) if res == 'A' else (0.5, 0.5)
-        elo_dict[h] = rh + K * (sh - eh); elo_dict[a] = ra + K * (sa - ea)
+        eh = 1/(1+10**((ra-rh)/400)); ea = 1/(1+10**((rh-ra)/400))
+        sh, sa = (1,0) if res=='H' else (0,1) if res=='A' else (0.5,0.5)
+        elo_dict[h] = rh + 32*(sh-eh); elo_dict[a] = ra + 32*(sa-ea)
     return elo_dict
 
 @st.cache_data(ttl=3600)
-def scarica_dati(codice_lega):
-    if codice_lega in ['UCL', 'UEL', 'UECL']: return None, None, None, None
-    u1, u2 = f"https://www.football-data.co.uk/mmz4281/{STAGIONE}/{codice_lega}.csv", f"https://www.football-data.co.uk/new/{codice_lega}.csv"
+def scarica_dati(lega):
+    u1 = f"https://www.football-data.co.uk/mmz4281/{STAGIONE}/{lega}.csv"
+    u2 = f"https://www.football-data.co.uk/new/{lega}.csv"
     try: df = pd.read_csv(u1)
-    except:
+    except: 
         try: df = pd.read_csv(u2)
         except: return None, None, None, None
-    try:
-        df['Date'] = pd.to_datetime(df['Date'], dayfirst=True, errors='coerce')
-        df = df.dropna(subset=['Date']).sort_values('Date')
-        df['HomeTeam'] = df['HomeTeam'].str.strip(); df['AwayTeam'] = df['AwayTeam'].str.strip()
-        for col in ['HST','AST','HC','AC','HF','AF','HY','AY']:
-            if col not in df.columns: df[col] = 0.0
-        hst, hs, hc = df.get('HST', 0), df.get('HS', 0), df.get('HC', 0)
-        ast, as_, ac = df.get('AST', 0), df.get('AS', 0), df.get('AC', 0)
-        df['xG_H'] = (hst * 0.32) + (np.maximum(0, hs - hst) * 0.05) + (hc * 0.03)
-        df['xG_A'] = (ast * 0.32) + (np.maximum(0, as_ - ast) * 0.05) + (ac * 0.03)
-        df['Result'] = np.where(df['FTHG'] > df['FTAG'], 'H', np.where(df['FTHG'] < df['FTAG'], 'A', 'D'))
-        elo = calculate_elo_updates(df, codice_lega)
-        avgs = { 'Goals_H': df['FTHG'].mean(), 'Goals_A': df['FTAG'].mean(), 'xG_H': df['xG_H'].mean(), 'xG_A': df['xG_A'].mean(), 'Shots_H': df['HST'].mean(), 'Shots_A': df['AST'].mean(), 'Corn_H': df['HC'].mean(), 'Corn_A': df['AC'].mean(), 'Fouls_H': df['HF'].mean(), 'Fouls_A': df['AF'].mean(), 'Cards_H': df['HY'].mean(), 'Cards_A': df['AY'].mean() }
-        h_df = df[['Date','HomeTeam','Result']].rename(columns={'HomeTeam':'Team'}); h_df['IsHome'] = 1; h_df['FormChar'] = np.where(h_df['Result'] == 'H', 'W', np.where(h_df['Result'] == 'A', 'L', 'D')); h_df['Goals_For'] = df['FTHG']; h_df['Goals_Ag'] = df['FTAG']; h_df['xG_For'] = df['xG_H']; h_df['xG_Ag'] = df['xG_A']; h_df['Shots_For'] = df['HST']; h_df['Shots_Ag'] = df['AST']; h_df['Corn_For'] = df['HC']; h_df['Corn_Ag'] = df['AC']; h_df['Fouls_For'] = df['HF']; h_df['Fouls_Ag'] = df['AF']; h_df['Cards_For'] = df['HY']; h_df['Cards_Ag'] = df['AY']
-        a_df = df[['Date','AwayTeam','Result']].rename(columns={'AwayTeam':'Team'}); a_df['IsHome'] = 0; a_df['FormChar'] = np.where(a_df['Result'] == 'A', 'W', np.where(a_df['Result'] == 'H', 'L', 'D')); a_df['Goals_For'] = df['FTAG']; a_df['Goals_Ag'] = df['FTHG']; a_df['xG_For'] = df['xG_A']; a_df['xG_Ag'] = df['xG_H']; a_df['Shots_For'] = df['AST']; a_df['Shots_Ag'] = df['HST']; a_df['Corn_For'] = df['AC']; a_df['Corn_Ag'] = df['HC']; a_df['Fouls_For'] = df['AF']; a_df['Fouls_Ag'] = df['HF']; a_df['Cards_For'] = df['AY']; a_df['Cards_Ag'] = df['HY']
-        full_df = pd.concat([h_df, a_df]).sort_values(['Team','Date'])
-        for m in ['Goals', 'xG', 'Shots', 'Corn', 'Fouls', 'Cards']:
-            full_df[f'{m}_Att_Rat'] = np.where(full_df['IsHome']==1, full_df[f'{m}_For']/avgs[f'{m}_H'], full_df[f'{m}_For']/avgs[f'{m}_A'])
-            full_df[f'{m}_Def_Rat'] = np.where(full_df['IsHome']==1, full_df[f'{m}_Ag']/avgs[f'{m}_A'], full_df[f'{m}_Ag']/avgs[f'{m}_H'])
-            full_df[f'W_{m}_Att'] = full_df.groupby('Team')[f'{m}_Att_Rat'].transform(lambda x: x.ewm(span=5, min_periods=1).mean())
-            full_df[f'W_{m}_Def'] = full_df.groupby('Team')[f'{m}_Def_Rat'].transform(lambda x: x.ewm(span=5, min_periods=1).mean())
-        return full_df, df, avgs, elo
-    except: return None, None, None, None
+    df['Date'] = pd.to_datetime(df['Date'], dayfirst=True, errors='coerce')
+    df = df.dropna(subset=['Date']).sort_values('Date')
+    df['HomeTeam'] = df['HomeTeam'].str.strip(); df['AwayTeam'] = df['AwayTeam'].str.strip()
+    df['Result'] = np.where(df['FTHG'] > df['FTAG'], 'H', np.where(df['FTHG'] < df['FTAG'], 'A', 'D'))
+    # Synthetic xG
+    for c in ['HST','AST','HC','AC','HS','AS']: 
+        if c not in df.columns: df[c] = 0.0
+    df['xG_H'] = (df['HST']*0.32) + (np.maximum(0, df['HS']-df['HST'])*0.05) + (df['HC']*0.03)
+    df['xG_A'] = (df['AST']*0.32) + (np.maximum(0, df['AS']-df['AST'])*0.05) + (df['AC']*0.03)
+    elo = calculate_elo_updates(df, lega)
+    # Averages
+    avgs = {'Goals_H': df['FTHG'].mean(), 'Goals_A': df['FTAG'].mean(), 'xG_H': df['xG_H'].mean(), 'xG_A': df['xG_A'].mean()}
+    h_df = df[['Date','HomeTeam','Result','FTHG','FTAG','xG_H','xG_A']].rename(columns={'HomeTeam':'Team','FTHG':'G_For','FTAG':'G_Ag','xG_H':'xG_F','xG_A':'xG_A_'})
+    a_df = df[['Date','AwayTeam','Result','FTAG','FTHG','xG_A','xG_H']].rename(columns={'AwayTeam':'Team','FTAG':'G_For','FTHG':'G_Ag','xG_A':'xG_F','xG_H':'xG_A_'})
+    full = pd.concat([h_df, a_df]).sort_values(['Team','Date'])
+    # Weighted
+    for m in ['G','xG']:
+        att = 'G_For' if m=='G' else 'xG_F'
+        full[f'W_{m}_A'] = full.groupby('Team')[att].transform(lambda x: x.ewm(span=5).mean())
+        full[f'W_{m}_D'] = full.groupby('Team')['G_Ag' if m=='G' else 'xG_A_'].transform(lambda x: x.ewm(span=5).mean())
+    return full, df, avgs, elo
 
-def get_live_matches(api_key, sport_key):
-    if not sport_key: return []
-    url = f'https://api.the-odds-api.com/v4/sports/{sport_key}/odds/?apiKey={api_key}&regions={REGION}&markets={MARKET}'
-    try: return requests.get(url).json()
-    except: return []
-
-def calcola_1x2_dixon_coles(lam_h, lam_a):
-    mat = np.zeros((10, 10))
+def DixonColes(lh, la):
+    mat = np.zeros((10,10))
     for i in range(10):
-        for j in range(10): mat[i,j] = poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
-    rho = 0.13; mat[0,0] *= (1 - (lam_h * lam_a * rho)); mat[0,1] *= (1 + (lam_h * rho)); mat[1,0] *= (1 + (lam_a * rho)); mat[1,1] *= (1 - rho)
-    mat /= np.sum(mat)
-    p1, pX, p2 = np.sum(np.tril(mat,-1)), np.trace(mat), np.sum(np.triu(mat,1))
-    return (1/p1 if p1>0 else 99), (1/pX if pX>0 else 99), (1/p2 if p2>0 else 99)
-
-def find_team_stats_global(team_name, cache_dataframes):
-    for code, (dfw, _, avgs, elo_dict) in cache_dataframes.items():
-        if dfw is None: continue
-        ts = dfw[dfw['Team'] == team_name]
-        if not ts.empty:
-            lr = ts.iloc[-1]; l5 = ts.tail(5)
-            return lr, elo_dict.get(team_name, 1500), avgs, "-".join(l5['FormChar'].tolist()), code
-    return None, 1500, None, "N/A", "N/A"
+        for j in range(10): mat[i,j] = poisson.pmf(i,lh)*poisson.pmf(j,la)
+    mat /= mat.sum()
+    return 1/mat.sum(axis=0)[1:].sum(), 1/np.trace(mat), 1/mat.sum(axis=1)[1:].sum()
 
 # ==============================================================================
-# UI GENERATORS
-# ==============================================================================
-
-def generate_complete_terminal(h_team, a_team, exp, odds, roi, min_p, h_date, a_date, bank, h_form, a_form, code, h_elo, a_elo, fatigue, drop):
-    html = f"<div class='terminal-box'><div class='term-header'>[ELO] {h_team} ({int(h_elo)}) vs {a_team} ({int(a_elo)})</div>"
-    if h_elo - a_elo > 100: html += f"<span class='term-green'>>>> ELO FAV: {h_team} (+{int(h_elo-a_elo)})</span>\n"
-    elif a_elo - h_elo > 100: html += f"<span class='term-green'>>>> ELO FAV: {a_team} (+{int(a_elo-h_elo)})</span>\n"
-    if fatigue: html += f"<div class='term-fatigue'>{fatigue}</div>\n"
-    if drop: html += f"<div class='term-drop'>{drop}</div>\n"
-    html += f"FORMA: {h_team:<15} [{h_form}] vs [{a_form}] {a_team}\n\n<span class='term-section'>[ 1X2 & VALUE ]</span>\n"
-    html += f"{'SEGNO':<6} | {'MY Q':<10} | {'BOOK':<8} | {'VALUE':<8} | {'STAKE'}\n" + "-"*60 + "\n"
-    for s, r, b in [('1', roi['1'], odds['1']), ('X', roi['X'], odds['X']), ('2', roi['2'], odds['2'])]:
-        mq = b/(r+1) if r+1>0 else 99; pr = 1/mq if mq>0 else 0
-        stk = round(bank*((b*pr-(1-pr))/b)*0.3, 2) if r>0 else 0
-        v_str = f"<span class='term-val'>{r*100:+.0f}% TOP</span>" if r>=0.15 else f"<span class='term-green'>{r*100:+.0f}%</span>" if r>0 else f"<span class='term-dim'>{r*100:+.0f}%</span>"
-        html += f"{s:<6} | {mq:<10.2f} | {b:<8.2f} | {v_str:<20} | {f'€ {stk}' if stk>0 else '-'}\n"
-    html += f"\n<span class='term-section'>[ ENGINE ]</span>\nCASA -> Goals: {exp['RealGoals'][0]:.2f} | xG: {exp['xG'][0]:.2f}\nOSP  -> Goals: {exp['RealGoals'][1]:.2f} | xG: {exp['xG'][1]:.2f}\n"
-    html += "</div>"
-    return html
-
-# ==============================================================================
-# MAIN INTERFACE
+# UI
 # ==============================================================================
 
 with st.sidebar:
     st.header("🎛️ Config")
-    api_key = st.text_input("API Key", type="password")
-    bank = st.number_input("Bankroll (€)", value=26.50)
-    min_p = st.slider("Min Prob", 0.50, 0.90, 0.65)
-    st.divider()
-    active_leagues = []
-    for g, codes in LEAGUE_GROUPS.items():
-        if st.checkbox(g, value=(g=="🏆 Top 5 (Tier 1)")): active_leagues.extend(codes)
-    sel_codes = list(set(active_leagues + st.multiselect("Manuale:", sorted(ALL_LEAGUES.keys()))))
+    api = st.text_input("API Key", type="password")
+    bank = st.number_input("Bank", value=26.5)
+    codes = st.multiselect("Leghe", sorted(ALL_LEAGUES.keys()), default=['E0','I1'])
 
-st.title("SmartBet Pro 59.0 Titanium Safe")
-t1, t2 = st.tabs(["🚀 ANALISI", "📅 CAL"])
+st.title("SmartBet Pro 60.0")
 
-with t1:
-    if st.button("🚀 AVVIA ANALISI"):
-        st.session_state.results_data, cache = {}, {}
-        for c in set([k for k in ALL_LEAGUES.keys() if k not in ['UCL','UEL','UECL']]): cache[c] = scarica_dati(c)
-        for c in sel_codes:
-            st.session_state.results_data[ALL_LEAGUES.get(c,c)] = []
-            for m in get_live_matches(api_key, API_MAPPING.get(c,'')):
-                h_r, a_r = m['home_team'], m['away_team']
-                h_t, a_t = TEAM_MAPPING.get(h_r, h_r), TEAM_MAPPING.get(a_r, a_r)
-                raw_d, fmt_d = parse_date(m.get('commence_time',''))
-                h_st, h_el, h_av, h_f, h_lg = find_team_stats_global(h_t, cache)
-                a_st, a_el, a_av, a_f, a_lg = find_team_stats_global(a_t, cache)
-                if not h_st or not a_st: continue
-                # Odds
-                bks = m.get('bookmakers', [])
-                q1, qX, q2 = [max([o['price'] for b in bks for mk in b['markets'] if mk['key']=='h2h' for o in mk['outcomes'] if o['name']==n] or [0]) for n in [h_r, 'Draw', a_r]]
-                # Fatigue Live Fix
-                mh, ma = (h_st['W_Goals_Att']*a_st['W_Goals_Def']*h_av['Goals_H']), (a_st['W_Goals_Att']*h_st['W_Goals_Def']*a_av['Goals_A'])
-                xh, xa = (h_st['W_xG_Att']*a_st['W_xG_Def']*h_av['xG_H']), (a_st['W_xG_Att']*h_st['W_xG_Def']*a_av['xG_A'])
-                bh, ba = (mh*0.5+xh*0.5), (ma*0.5+xa*0.5)
-                if h_el-a_el>100: bh*=1.05
-                elif a_el-h_el>100: ba*=1.05
-                fat_str = ""
-                # LIVE FATIGUE CHECK
-                d_h, d_a = (raw_d - h_st['Date'].date()).days, (raw_d - a_st['Date'].date()).days
-                if d_h < 4: bh*=0.85; fat_str += f"⚠️ STANCHEZZA CASA ({d_h}gg)\n"
-                if d_a < 4: ba*=0.85; fat_str += f"⚠️ STANCHEZZA OSPITE ({d_a}gg)\n"
-                # Results
-                mq1, mqX, mq2 = calcola_1x2_dixon_coles(bh, ba)
-                drp = check_dropping_odds(h_t, a_t, str(raw_d), q1, qX, q2)
-                html = generate_complete_terminal(h_t, a_t, {'RealGoals':(mh,ma), 'xG':(xh,xa), 'Goals':(bh,ba)}, {'1':q1,'X':qX,'2':q2}, {'1':(q1/mq1-1),'X':(qX/mqX-1),'2':(q2/mq2-1)}, min_p, h_st['Date'], a_st['Date'], bank, h_f, a_f, c, h_el, a_el, fat_str, drp)
-                st.session_state.results_data[ALL_LEAGUES.get(c,c)].append({'label':f"{fmt_d} | {h_t} vs {a_t}", 'html':html})
-        st.rerun()
-
-    if st.session_state.results_data:
-        for l, ms in st.session_state.results_data.items():
-            if ms:
-                with st.expander(f"🏆 {l}"):
-                    for m in ms:
-                        with st.expander(m['label']): st.markdown(m['html'], unsafe_allow_html=True)
+if st.button("🚀 ANALISI"):
+    cache = {c: scarica_dati(c) for c in codes}
+    for c in codes:
+        url = f'https://api.the-odds-api.com/v4/sports/{API_MAPPING.get(c,"")}/odds/?apiKey={api}&regions={REGION}&markets={MARKET}'
+        res = requests.get(url).json()
+        if not isinstance(res, list): continue
+        for m in res:
+            h_r, a_r = m['home_team'], m['away_team']
+            h_t, a_t = TEAM_MAPPING.get(h_r, h_r), TEAM_MAPPING.get(a_r, a_r)
+            r_d, f_d = parse_date(m.get('commence_time',''))
+            dfw, _, avgs, elo = cache[c]
+            if dfw is None: continue
+            hs, as_ = dfw[dfw['Team']==h_t], dfw[dfw['Team']==a_t]
+            if hs.empty or as_.empty: continue
+            # Calcolo Lambda
+            lh = hs.iloc[-1]['W_G_A'] * as_.iloc[-1]['W_G_D'] / avgs['Goals_H']
+            la = as_.iloc[-1]['W_G_A'] * hs.iloc[-1]['W_G_D'] / avgs['Goals_A']
+            # Fatigue
+            fat = ""
+            dh, da = (r_d - hs.iloc[-1]['Date'].date()).days, (r_d - as_.iloc[-1]['Date'].date()).days
+            if dh < 4: lh *= 0.85; fat += f"⚠️ STANCHEZZA {h_t} ({dh}gg)\n"
+            if da < 4: la *= 0.85; fat += f"⚠️ STANCHEZZA {a_t} ({da}gg)\n"
+            # Terminal
+            st.markdown(f"""<div class='terminal-box'>
+                <span class='term-header'>{h_t} vs {a_t} ({f_d})</span><br/>
+                <span class='term-fatigue'>{fat}</span><br/>
+                Exp Goals: {lh:.2f} - {la:.2f}
+                </div>""", unsafe_allow_html=True)
