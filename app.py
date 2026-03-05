@@ -316,11 +316,8 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
                 model_name = m
                 break
                 
-        # IL FIX È QUI: Usiamo il nuovo nome del tool richiesto da Google
-        model = genai.GenerativeModel(
-            model_name=model_name,
-            tools='google_search' 
-        )
+        # RIMOSSO IL PARAMETRO TOOLS CHE CAUSAVA IL CRASH
+        model = genai.GenerativeModel(model_name=model_name)
         
         prompt = f"""Agisci come un Risk Manager professionista di betting sportivo.
 Oggi è esattamente il {oggi}. Analizza la partita {h_team} vs {a_team} in programma in questi giorni.
@@ -329,10 +326,10 @@ I nostri modelli matematici hanno prodotto questi numeri:
 - Vantaggio Matematico (ROI): 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)
 
 Esegui questa procedura rigorosa e spietata:
-1. Usa il tool di ricerca Google per trovare le formazioni ufficiali, probabili formazioni o infortuni confermati usciti NELLE ULTIME 24 ORE.
-2. FILTRO FONTI (TIER 1): Accetta SOLO notizie provenienti da siti ufficiali dei club, Reuters, Sky Sports, BBC Sport, The Athletic, L'Equipe, Marca, Kicker o giornalisti verificati. 
+1. Accedi ai tuoi dati più recenti e aggiornati a OGGI per trovare le formazioni ufficiali, probabili formazioni o infortuni confermati.
+2. FILTRO FONTI (TIER 1): Basa la tua analisi SOLO su informazioni provenienti da siti ufficiali dei club, Reuters, Sky Sports, BBC Sport, The Athletic, L'Equipe, Marca, Kicker o giornalisti verificati. 
 3. IGNORA CATEGORICAMENTE i tabloid (es. The Sun, Daily Mail), i siti di gossip sportivo e le speculazioni non confermate.
-4. Se non trovi nulla di affidabile pubblicato nelle ultime 48 ore, dichiara: "Nessuna notizia rilevante da fonti verificate". Non dedurre e non inventare.
+4. Se non hai accesso a notizie affidabili delle ultime 48 ore, dichiara: "Nessuna notizia rilevante da fonti verificate". Non dedurre e non inventare formazioni passate.
 
 Restituisci il report usando ESATTAMENTE questo schema:
 
@@ -345,8 +342,7 @@ Tono oggettivo, sintetico e privo di moralismi."""
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        return f"❌ Errore API (Web Search): {str(e)}"
-
+        return f"❌ Errore API: {str(e)}"
 # ==============================================================================
 # GENERATORE UI TERMINALE
 # ==============================================================================
