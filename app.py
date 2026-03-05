@@ -297,12 +297,39 @@ def find_team_stats_global(team_name, cache_dataframes):
 # FUNZIONI AI (GOOGLE GEMINI) - FIXED 404
 # ==============================================================================
 
+import urllib.request
+import urllib.parse
+import xml.etree.ElementTree as ET
+
+def fetch_live_news(h_team, a_team):
+    """Cerca le ultime notizie su Google News in modo nativo e gratuito"""
+    try:
+        # Crea la query di ricerca: "Tottenham OR Crystal Palace injury OR lineup when:1d"
+        query = urllib.parse.quote(f'"{h_team}" OR "{a_team}" injury OR lineup OR team news when:1d')
+        url = f"https://news.google.com/rss/search?q={query}&hl=en-GB&gl=GB&ceid=GB:en"
+        
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req) as response:
+            xml_data = response.read()
+            
+        root = ET.fromstring(xml_data)
+        headlines = []
+        for item in root.findall('.//item')[:5]: # Prende solo le prime 5 notizie
+            title = item.find('title').text
+            headlines.append(f"- {title}")
+            
+        if not headlines:
+            return "Nessuna notizia di rilievo trovata nelle ultime 24 ore."
+        return "\n".join(headlines)
+    except Exception as e:
+        return f"Impossibile recuperare le notizie in diretta ({str(e)})."
+
 def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi_1x2, mq1, mqx, mq2):
     try:
         genai.configure(api_key=gemini_api_key)
         
-        # Estrazione della data esatta per azzerare le allucinazioni temporali
-        oggi = datetime.now().strftime("%d/%m/%Y")
+        # Estrazione notizie in tempo reale tramite Python (aggira i blocchi AI)
+        live_news = fetch_live_news(h_team, a_team)
         
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         safe_models = [m for m in available_models if '2.0' not in m and 'vision' not in m]
@@ -316,26 +343,27 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
                 model_name = m
                 break
                 
-        # RIMOSSO IL PARAMETRO TOOLS CHE CAUSAVA IL CRASH
         model = genai.GenerativeModel(model_name=model_name)
         
         prompt = f"""Agisci come un Risk Manager professionista di betting sportivo.
-Oggi è esattamente il {oggi}. Analizza la partita {h_team} vs {a_team} in programma in questi giorni.
+Analizza la partita {h_team} vs {a_team} in programma oggi.
 I nostri modelli matematici hanno prodotto questi numeri:
 - Quote Reali (1X2): 1 ({mq1:.2f}), X ({mqx:.2f}), 2 ({mq2:.2f})
 - Vantaggio Matematico (ROI): 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)
 
-Esegui questa procedura rigorosa e spietata:
-1. Accedi ai tuoi dati più recenti e aggiornati a OGGI per trovare le formazioni ufficiali, probabili formazioni o infortuni confermati.
-2. FILTRO FONTI (TIER 1): Basa la tua analisi SOLO su informazioni provenienti da siti ufficiali dei club, Reuters, Sky Sports, BBC Sport, The Athletic, L'Equipe, Marca, Kicker o giornalisti verificati. 
-3. IGNORA CATEGORICAMENTE i tabloid (es. The Sun, Daily Mail), i siti di gossip sportivo e le speculazioni non confermate.
-4. Se non hai accesso a notizie affidabili delle ultime 48 ore, dichiara: "Nessuna notizia rilevante da fonti verificate". Non dedurre e non inventare formazioni passate.
+IL MIO SISTEMA HA GIÀ ESTRATTO LE NOTIZIE DELLE ULTIME 24 ORE DA GOOGLE NEWS:
+{live_news}
+
+Esegui questa procedura rigorosa:
+1. Leggi i titoli estratti qui sopra. Cerca assenze confermate, infortuni o turnover.
+2. Se i titoli parlano di infortuni o assenze per le due squadre, valuta l'impatto.
+3. Se non ci sono notizie o i titoli sono irrilevanti, dichiara: "Nessuna anomalia confermata dai feed odierni".
 
 Restituisci il report usando ESATTAMENTE questo schema:
 
-- IL FATTO: (Notizie REALI e odierne su assenze o turnover. Solo i fatti accertati).
-- IL SEGNALE: (Come queste specifiche assenze spostano il vantaggio calcolato).
-- IL CONTRO-CANTO: (Il bias del mercato oggi. Azione Risk Management: Conferma Bet, No Bet, Switch).
+- IL FATTO: (Sintesi delle notizie estratte sopra. Solo fatti).
+- IL SEGNALE: (Come queste specifiche informazioni cambiano le carte in tavola per il nostro vantaggio matematico).
+- IL CONTRO-CANTO: (Azione Risk Management finale: Conferma Bet, No Bet, Switch).
 
 Tono oggettivo, sintetico e privo di moralismi."""
 
