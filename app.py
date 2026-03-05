@@ -301,42 +301,29 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
     try:
         genai.configure(api_key=gemini_api_key)
         
-        # FIX PER IL 404: Trova il modello migliore tra quelli attivi per la chiave
-        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        
-        model_name = 'models/gemini-1.5-flash' # Default Fallback
-        if 'models/gemini-2.0-flash' in available_models:
-            model_name = 'models/gemini-2.0-flash'
-        elif 'models/gemini-1.5-flash' in available_models:
-            model_name = 'models/gemini-1.5-flash'
-        elif 'models/gemini-pro' in available_models:
-            model_name = 'models/gemini-pro'
-        elif len(available_models) > 0:
-            model_name = available_models[0]
-            
-        model = genai.GenerativeModel(model_name)
+        # Forziamo la versione 1.5 Flash che ha il Free Tier garantito e usiamo la sintassi base
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         prompt = f"""Agisci come un Risk Manager professionista di betting sportivo.
 Analizza la partita {h_team} vs {a_team} di oggi.
 I nostri modelli matematici hanno prodotto questi numeri:
 - Quote Reali Calcolate (1X2): 1 ({mq1:.2f}), X ({mqx:.2f}), 2 ({mq2:.2f})
 - Vantaggio Matematico (ROI): 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)
-- Goal Attesi (Real Goals): Casa {exp_data['RealGoals'][0]:.2f} - Ospite {exp_data['RealGoals'][1]:.2f}
 
 Esegui questa procedura rigorosa:
-1. Scansiona le fonti globali e seleziona SOLO gli eventi che avranno un impatto reale e odierno sulla gara (infortuni, squalifiche). Ignora il gossip e la cronaca spicciola.
-2. Per le notizie trovate, usa rigorosamente questo formato schematico:
+1. Scansiona le fonti globali e seleziona SOLO le 3 notizie che avranno un impatto reale e odierno sulla gara (infortuni di titolari inamovibili, squalifiche pesanti). Ignora il gossip e la cronaca spicciola.
+2. Per ogni notizia, usa questo formato schematico:
 
-- IL FATTO: Una frase secca su cosa è successo. (Se non trovi nulla, scrivi "Nessuna anomalia rilevante riportata").
-- IL SEGNALE: Perché è importante? Analizza gli effetti di secondo e terzo ordine (conseguenze non ovvie sui nostri numeri).
-- IL CONTRO-CANTO: Qual è il bias narrativo dei media mainstream su questo match? Cosa non mi stanno dicendo? (Suggerisci infine un'azione di rischio: Conferma Bet, No Bet, Switch mercato).
+- IL FATTO: Una frase secca su cosa è successo. (Se non c'è nulla di impattante, scrivi "Nessuna anomalia rilevante riportata").
+- IL SEGNALE: Perché è importante? Analizza gli effetti di secondo e terzo ordine (come impatta sui nostri calcoli matematici).
+- IL CONTRO-CANTO: Qual è il bias narrativo dei media mainstream su questo match? Cosa non mi stanno dicendo? (Aggiungi la tua azione di Risk Management: Conferma Bet, No Bet, Switch Mercato).
 
 Il tuo tono deve essere oggettivo, sintetico e privo di moralismi. Il mio obiettivo è avere un vantaggio informativo."""
 
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        return f"❌ Errore API Gemini: {str(e)}"
+        return f"❌ Errore API: La connessione AI è stata bloccata. Dettaglio tecnico: {str(e)}"
 
 # ==============================================================================
 # GENERATORE UI TERMINALE
