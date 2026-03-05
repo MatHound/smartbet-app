@@ -297,52 +297,14 @@ def find_team_stats_global(team_name, cache_dataframes):
 # FUNZIONI AI (GOOGLE GEMINI) - FIXED 404
 # ==============================================================================
 
-import urllib.request
-import urllib.parse
-import xml.etree.ElementTree as ET
-import re
-
-def get_team_news(team):
-    """Ricerca iper-specifica per intercettare SOLO bollettini medici e squalifiche"""
-    try:
-        # Query chirurgica: Cerca solo eventi di esclusione certa o conferenze stampa
-        query_str = f'"{team}" ("ruled out" OR suspended OR "miss the match" OR "injury update" OR "press conference") when:2d'
-        query = urllib.parse.quote(query_str)
-        url = f"https://news.google.com/rss/search?q={query}&hl=en-GB&gl=GB&ceid=GB:en"
-        
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req) as response:
-            xml_data = response.read()
-            
-        root = ET.fromstring(xml_data)
-        headlines = []
-        for item in root.findall('.//item')[:3]: 
-            title = item.find('title').text if item.find('title') is not None else ""
-            desc = item.find('description').text if item.find('description') is not None else ""
-            desc_clean = re.sub('<[^<]+>', '', desc).strip()
-            headlines.append(f"• {title} ({desc_clean})")
-            
-        if not headlines:
-            return "Nessun trigger event rilevato."
-        return "\n".join(headlines)
-    except Exception:
-        return "Errore di connessione al feed."
-
-def fetch_live_news(h_team, a_team):
-    h_news = get_team_news(h_team)
-    a_news = get_team_news(a_team)
-    return f"[SILO {h_team}]:\n{h_news}\n\n[SILO {a_team}]:\n{a_news}"
-
-def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi_1x2, mq1, mqx, mq2):
+def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi_1x2, mq1, mqx, mq2, preview_text):
     try:
         genai.configure(api_key=gemini_api_key)
-        
-        live_news = fetch_live_news(h_team, a_team)
         
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         safe_models = [m for m in available_models if '2.0' not in m and 'vision' not in m]
         
-        if not safe_models: return "❌ Errore API: Modelli esauriti o non disponibili."
+        if not safe_models: return "❌ Errore API: Modelli non disponibili."
             
         model_name = safe_models[0]
         for m in safe_models:
@@ -351,25 +313,25 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
                 
         model = genai.GenerativeModel(model_name=model_name)
         
-        prompt = f"""Analizza il match {h_team} vs {a_team}.
-Vantaggio Matematico (ROI): 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)
+        prompt = f"""Agisci come un Risk Manager professionista di betting sportivo.
+Analizza il match {h_team} vs {a_team}.
+I nostri modelli matematici hanno prodotto questi numeri:
+- Quote Reali Calcolate (1X2): 1 ({mq1:.2f}), X ({mqx:.2f}), 2 ({mq2:.2f})
+- Vantaggio Matematico (ROI): 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)
 
-FEED ESTRATTO (News delle ultime 48h suddivise per squadra):
-{live_news}
+TESTO DELL'ANTEPRIMA FORNITO DALL'ANALISTA (Leggilo attentamente):
+"{preview_text}"
 
-PROCEDURA RIGOROSA:
-Scansiona il feed fornito cercando ESCLUSIVAMENTE queste 3 categorie di informazioni:
-1. INFORTUNI CONFERMATI: Giocatori titolari dichiarati esplicitamente "out", "ruled out" o infortunati.
-2. SQUALIFICHE: Giocatori sospesi ("suspended").
-3. TURNOVER CERTO: Dichiarazioni ufficiali dell'allenatore sul riposo di giocatori chiave.
+Esegui questa procedura rigorosa basandoti ESCLUSIVAMENTE sul testo fornito:
+1. Identifica le motivazioni chiave (es. lotta retrocessione, coppe europee).
+2. Estrai i giocatori infortunati o squalificati confermati nel testo.
+3. Ignora le raccomandazioni di scommessa dell'autore del testo (es. "ci aspettiamo entrambe le squadre a segno"). Devi decidere TU incrociando il testo con i NOSTRI dati ROI.
 
-Regola di scarto: IGNORA rumor di mercato, opinioni tattiche, resoconti di partite passate e formazioni "probabili" scritte da giornalisti. Se un nome menzionato non fa parte della rosa attuale di {h_team} o {a_team}, scartalo come inquinamento dati.
+Restituisci l'output usando ESATTAMENTE questo formato:
 
-Restituisci l'output usando ESATTAMENTE questo formato schematico:
-
-- IL FATTO: Una frase secca su chi manca e perché (specifica il team). Se il feed non contiene infortuni/squalifiche esplicite, scrivi testualmente: "Nessun evento scatenante confermato a referto. Solo rumore mediatico."
-- IL SEGNALE: Analizza come l'assenza di questi profili specifici altera l'equilibrio in campo e il nostro calcolo del ROI. Se nessuna assenza: "I dati matematici rimangono il driver primario senza distorsioni esterne."
-- IL CONTRO-CANTO: Qual è il bias narrativo dei media mainstream su questa partita per spingere le scommesse sui favoriti? Cosa ignorano i flussi di mercato? (Concludi con: Azione: Conferma Bet / No Bet / Switch).
+- IL FATTO: (Sintesi secca di motivazioni, infortuni e squalifiche lette nel testo. Es. "Tottenham in lotta retrocessione, squalificato Romero. Palace privo di Mateta e Lerma"). Se non hai incollato alcun testo, scrivi "Nessun dato fornito".
+- IL SEGNALE: (Come questi fatti impattano il nostro ROI. Es. "Le assenze difensive del Palace e le motivazioni di sopravvivenza del Tottenham rafforzano/indeboliscono la quota...").
+- IL CONTRO-CANTO: (Qual è il bias narrativo del mercato e qual è la mossa giusta per noi. Azione: Conferma Bet, No Bet, Switch Mercato).
 
 Tono oggettivo, sintetico, privo di moralismi."""
 
@@ -377,6 +339,47 @@ Tono oggettivo, sintetico, privo di moralismi."""
         return response.text
     except Exception as e:
         return f"❌ Errore API: {str(e)}"
+
+# ==============================================================================
+# MODIFICA ALL'INTERFACCIA (DA INSERIRE DOVE C'È IL PULSANTE AI)
+# ==============================================================================
+# Sostituisci la parte di rendering delle tab (alla fine del file) con questa:
+
+    # RENDERIZZAZIONE TAB PRINCIPALE
+    if st.session_state['results_data']:
+        active_leagues = [l for l in st.session_state['results_data'] if st.session_state['results_data'][l]]
+        if active_leagues:
+            tabs = st.tabs(active_leagues)
+            for i, l in enumerate(active_leagues):
+                with tabs[i]:
+                    for m in st.session_state['results_data'][l]:
+                        with st.expander(m['label']):
+                            st.markdown(m['html'], unsafe_allow_html=True)
+                            
+                            # AI BUTTON CON TEXT AREA (Tab Principale)
+                            if m['is_top_5']:
+                                display_key = f"ai_res_{m['match_id']}"
+                                text_input_key = f"txt_{m['match_id']}"
+                                
+                                st.markdown("---")
+                                st.markdown("📝 **Iniezione Dati Qualitativi (Opzionale)**")
+                                preview_text = st.text_area("Incolla qui l'anteprima da Diretta.it o Sofascore:", key=text_input_key, height=100)
+                                
+                                col1, col2 = st.columns([1, 3])
+                                with col1:
+                                    if st.button("🧠 Genera Risk Management", key=f"btn_{m['match_id']}_main"):
+                                        if not gemini_key_input:
+                                            st.error("Inserisci la chiave Gemini a sinistra!")
+                                        elif not preview_text.strip():
+                                            st.warning("⚠️ Incolla un testo di anteprima prima di generare l'analisi!")
+                                        else:
+                                            with st.spinner("Analisi Risk Management in corso..."):
+                                                d = m['ai_data']
+                                                res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], d['q1'], d['qx'], d['q2'], preview_text)
+                                                st.session_state[display_key] = res
+                                
+                                if display_key in st.session_state:
+                                    st.markdown(f"<div class='ai-box'>{st.session_state[display_key]}</div>", unsafe_allow_html=True)
 # ==============================================================================
 # GENERATORE UI TERMINALE
 # ==============================================================================
