@@ -316,9 +316,10 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
                 model_name = m
                 break
                 
+        # IL FIX È QUI: Usiamo il nuovo nome del tool richiesto da Google
         model = genai.GenerativeModel(
             model_name=model_name,
-            tools='google_search_retrieval' 
+            tools='google_search' 
         )
         
         prompt = f"""Agisci come un Risk Manager professionista di betting sportivo.
