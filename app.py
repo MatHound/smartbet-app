@@ -5,12 +5,12 @@ import requests
 import os
 from scipy.stats import poisson
 from datetime import datetime, timedelta
-import google.generativeai as genai # NUOVA LIBRERIA AI
+import google.generativeai as genai 
 
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro 63.0 Risk Manager", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 63.1 Risk Manager", page_icon="🧬", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -294,15 +294,27 @@ def find_team_stats_global(team_name, cache_dataframes):
     return None, 1500, None, "N/A", "N/A"
 
 # ==============================================================================
-# FUNZIONI AI (GOOGLE GEMINI)
+# FUNZIONI AI (GOOGLE GEMINI) - FIXED 404
 # ==============================================================================
 
 def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi_1x2, mq1, mqx, mq2):
     try:
         genai.configure(api_key=gemini_api_key)
-        # Gemini 1.5 Flash supports internal searching if prompted well, or using tools if enabled.
-        # For maximum compatibility with basic keys, we use a strictly guided prompt.
-        model = genai.GenerativeModel('gemini-1.5-flash') 
+        
+        # FIX PER IL 404: Trova il modello migliore tra quelli attivi per la chiave
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        model_name = 'models/gemini-1.5-flash' # Default Fallback
+        if 'models/gemini-2.0-flash' in available_models:
+            model_name = 'models/gemini-2.0-flash'
+        elif 'models/gemini-1.5-flash' in available_models:
+            model_name = 'models/gemini-1.5-flash'
+        elif 'models/gemini-pro' in available_models:
+            model_name = 'models/gemini-pro'
+        elif len(available_models) > 0:
+            model_name = available_models[0]
+            
+        model = genai.GenerativeModel(model_name)
         
         prompt = f"""Agisci come un Risk Manager professionista di betting sportivo.
 Analizza la partita {h_team} vs {a_team} di oggi.
@@ -312,22 +324,19 @@ I nostri modelli matematici hanno prodotto questi numeri:
 - Goal Attesi (Real Goals): Casa {exp_data['RealGoals'][0]:.2f} - Ospite {exp_data['RealGoals'][1]:.2f}
 
 Esegui questa procedura rigorosa:
-1. Cerca sul web le notizie di OGGI riguardanti questa specifica partita (formazioni previste, infortuni confermati, squalifiche pesanti, condizioni meteo estreme o cambi allenatore). NON inventare dati.
-2. Incrocia queste notizie reali con i numeri matematici forniti sopra.
-3. Ignora il gossip e la cronaca spicciola.
+1. Scansiona le fonti globali e seleziona SOLO gli eventi che avranno un impatto reale e odierno sulla gara (infortuni, squalifiche). Ignora il gossip e la cronaca spicciola.
+2. Per le notizie trovate, usa rigorosamente questo formato schematico:
 
-Restituisci l'analisi usando ESATTAMENTE e SOLO questo formato schematico:
-
-- IL FATTO: Una frase secca su assenze chiave confermate, squalifiche o condizioni reali di oggi. Se non c'è nulla di rilevante, scrivi "Nessuna anomalia riportata".
-- IL SEGNALE: Perché è importante? Analizza se questo annulla, indebolisce o rafforza il nostro vantaggio matematico calcolato.
-- IL CONTRO-CANTO: Qual è il bias narrativo del mercato oggi su questo match? La quota sta scendendo per un motivo reale o per l'hype dei media? Qual è l'azione suggerita (Conferma Bet, No Bet, Switch mercato)?
+- IL FATTO: Una frase secca su cosa è successo. (Se non trovi nulla, scrivi "Nessuna anomalia rilevante riportata").
+- IL SEGNALE: Perché è importante? Analizza gli effetti di secondo e terzo ordine (conseguenze non ovvie sui nostri numeri).
+- IL CONTRO-CANTO: Qual è il bias narrativo dei media mainstream su questo match? Cosa non mi stanno dicendo? (Suggerisci infine un'azione di rischio: Conferma Bet, No Bet, Switch mercato).
 
 Il tuo tono deve essere oggettivo, sintetico e privo di moralismi. Il mio obiettivo è avere un vantaggio informativo."""
 
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        return f"❌ Errore API Gemini: Verifica la chiave o la connessione. Dettaglio: {str(e)}"
+        return f"❌ Errore API Gemini: {str(e)}"
 
 # ==============================================================================
 # GENERATORE UI TERMINALE
@@ -434,8 +443,8 @@ with st.sidebar:
     st.divider()
     inspect_csv_mode = st.checkbox("🔍 ISPEZIONA CSV", value=False)
 
-st.title("SmartBet Pro 63.0")
-st.caption("Engine: Deep Data | Risk Management AI | Exact Score | HT Engine | Dropping Odds")
+st.title("SmartBet Pro 63.1")
+st.caption("Engine: Risk Management AI | Deep Data | Exact Score | HT Engine | Dropping Odds")
 
 tab_main, tab_cal = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO"])
 
@@ -510,7 +519,7 @@ with tab_main:
                         
                         html_block = generate_complete_terminal(h_team, a_team, exp_data, {'1':q1_b,'X':qX_b,'2':q2_b}, roi_1x2, min_prob_val, h_data['Date'], a_data['Date'], bankroll_input, h_form, a_form, code, h_elo, a_elo, fatigue_alert, drop_alert)
                         
-                        # Struttura Dati
+                        # Struttura Dati per sincronizzazione UI
                         match_id = f"{h_team}_{a_team}_{raw_date_obj}"
                         item_ok = {
                             'match_id': match_id,
@@ -524,7 +533,7 @@ with tab_main:
 
             status.empty(); st.success("Analisi Completata.")
 
-    # RENDERIZZAZIONE RISULTATI E PULSANTI AI
+    # RENDERIZZAZIONE TAB PRINCIPALE
     if st.session_state['results_data']:
         active_leagues = [l for l in st.session_state['results_data'] if st.session_state['results_data'][l]]
         if active_leagues:
@@ -535,20 +544,51 @@ with tab_main:
                         with st.expander(m['label']):
                             st.markdown(m['html'], unsafe_allow_html=True)
                             
-                            # PULSANTE AI SOLO PER TOP 5
+                            # AI BUTTON (Tab Principale)
                             if m['is_top_5']:
-                                ai_key = f"ai_res_{m['match_id']}"
+                                display_key = f"ai_res_{m['match_id']}"
                                 col1, col2 = st.columns([1, 3])
                                 with col1:
-                                    if st.button("🧠 Risk Management AI", key=f"btn_{m['match_id']}"):
+                                    if st.button("🧠 Risk Management AI", key=f"btn_{m['match_id']}_main"):
                                         if not gemini_key_input:
                                             st.error("Inserisci la chiave Gemini a sinistra!")
                                         else:
                                             with st.spinner("Ricerca sul web in corso..."):
                                                 d = m['ai_data']
                                                 res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], d['q1'], d['qx'], d['q2'])
-                                                st.session_state[ai_key] = res
+                                                st.session_state[display_key] = res
                                 
-                                # Mostra risultato salvato
-                                if ai_key in st.session_state:
-                                    st.markdown(f"<div class='ai-box'>{st.session_state[ai_key]}</div>", unsafe_allow_html=True)
+                                if display_key in st.session_state:
+                                    st.markdown(f"<div class='ai-box'>{st.session_state[display_key]}</div>", unsafe_allow_html=True)
+
+# RENDERIZZAZIONE TAB CALENDARIO (Ora Sincronizzata)
+with tab_cal:
+    st.markdown("### 📅 Calendario")
+    if st.session_state['calendar_data']:
+        unique_dates = sorted(list(set([x['raw_date'] for x in st.session_state['calendar_data']])))
+        if unique_dates:
+            selected_date = st.date_input("Seleziona Data:", value=unique_dates[0], min_value=unique_dates[0])
+            daily_matches = [x for x in st.session_state['calendar_data'] if x['raw_date'] == selected_date]
+            if daily_matches:
+                for m in daily_matches:
+                    with st.expander(m['label']): 
+                        st.markdown(m['html'], unsafe_allow_html=True)
+                        
+                        # AI BUTTON (Tab Calendario - Sync)
+                        if m.get('is_top_5'):
+                            display_key = f"ai_res_{m['match_id']}"
+                            col1, col2 = st.columns([1, 3])
+                            with col1:
+                                if st.button("🧠 Risk Management AI", key=f"btn_{m['match_id']}_cal"):
+                                    if not gemini_key_input:
+                                        st.error("Inserisci la chiave Gemini a sinistra!")
+                                    else:
+                                        with st.spinner("Ricerca sul web in corso..."):
+                                            d = m['ai_data']
+                                            res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], d['q1'], d['qx'], d['q2'])
+                                            st.session_state[display_key] = res
+                            
+                            if display_key in st.session_state:
+                                st.markdown(f"<div class='ai-box'>{st.session_state[display_key]}</div>", unsafe_allow_html=True)
+            else: st.warning("Nessuna partita in questa data.")
+    else: st.info("Esegui prima la ricerca dei Value Bets per popolare il calendario.")
