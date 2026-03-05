@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 62.0 Deep Data", page_icon="🧬", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -310,8 +310,10 @@ def scarica_dati(codice_lega):
         needed = ['Date','HomeTeam','AwayTeam','FTHG','FTAG']
         if not all(col in df.columns for col in needed): return None, None, None, None
         
-        for col in ['HST','AST','HC','AC','HF','AF','HY','AY']:
+        # Inserimento Colonne Mancanti, inclusi i dati Primo Tempo (HT)
+        for col in ['HST','AST','HC','AC','HF','AF','HY','AY', 'HTHG', 'HTAG']:
             if col not in df.columns: df[col] = 0.0
+            else: df[col] = df[col].fillna(0.0)
         
         df['xG_H'], df['xG_A'] = zip(*df.apply(calculate_synthetic_xg, axis=1))
         df['Result'] = np.where(df['FTHG'] > df['FTAG'], 'H', np.where(df['FTHG'] < df['FTAG'], 'A', 'D'))
@@ -325,6 +327,7 @@ def scarica_dati(codice_lega):
             'Corn_H': df['HC'].mean(), 'Corn_A': df['AC'].mean(),
             'Fouls_H': df['HF'].mean(), 'Fouls_A': df['AF'].mean(),
             'Cards_H': df['HY'].mean(), 'Cards_A': df['AY'].mean(),
+            'HT_H': df['HTHG'].mean(), 'HT_A': df['HTAG'].mean(), # Medie Primo Tempo
         }
         
         h_df = df[['Date','HomeTeam','Result']].rename(columns={'HomeTeam':'Team'})
@@ -336,6 +339,7 @@ def scarica_dati(codice_lega):
         h_df['Corn_For'] = df['HC']; h_df['Corn_Ag'] = df['AC']
         h_df['Fouls_For'] = df['HF']; h_df['Fouls_Ag'] = df['AF']
         h_df['Cards_For'] = df['HY']; h_df['Cards_Ag'] = df['AY']
+        h_df['HT_For'] = df['HTHG']; h_df['HT_Ag'] = df['HTAG']
         
         a_df = df[['Date','AwayTeam','Result']].rename(columns={'AwayTeam':'Team'})
         a_df['IsHome'] = 0
@@ -346,13 +350,23 @@ def scarica_dati(codice_lega):
         a_df['Corn_For'] = df['AC']; a_df['Corn_Ag'] = df['HC']
         a_df['Fouls_For'] = df['AF']; a_df['Fouls_Ag'] = df['HF']
         a_df['Cards_For'] = df['AY']; a_df['Cards_Ag'] = df['HY']
+        a_df['HT_For'] = df['HTAG']; a_df['HT_Ag'] = df['HTHG']
         
         full_df = pd.concat([h_df, a_df]).sort_values(['Team','Date'])
         
-        metrics = ['Goals', 'xG', 'Shots', 'Corn', 'Fouls', 'Cards']
+        metrics = ['Goals', 'xG', 'Shots', 'Corn', 'Fouls', 'Cards', 'HT']
         for m in metrics:
-            full_df[f'{m}_Att_Rat'] = np.where(full_df['IsHome']==1, full_df[f'{m}_For']/avgs[f'{m}_H'], full_df[f'{m}_For']/avgs[f'{m}_A'])
-            full_df[f'{m}_Def_Rat'] = np.where(full_df['IsHome']==1, full_df[f'{m}_Ag']/avgs[f'{m}_A'], full_df[f'{m}_Ag']/avgs[f'{m}_H'])
+            # Divisione sicura per evitare errori con leghe minori che non hanno dati
+            full_df[f'{m}_Att_Rat'] = np.where(
+                full_df['IsHome']==1, 
+                np.where(avgs[f'{m}_H'] > 0, full_df[f'{m}_For']/avgs[f'{m}_H'], 1.0),
+                np.where(avgs[f'{m}_A'] > 0, full_df[f'{m}_For']/avgs[f'{m}_A'], 1.0)
+            )
+            full_df[f'{m}_Def_Rat'] = np.where(
+                full_df['IsHome']==1, 
+                np.where(avgs[f'{m}_A'] > 0, full_df[f'{m}_Ag']/avgs[f'{m}_A'], 1.0),
+                np.where(avgs[f'{m}_H'] > 0, full_df[f'{m}_Ag']/avgs[f'{m}_H'], 1.0)
+            )
             
             full_df[f'W_{m}_Att'] = full_df.groupby('Team')[f'{m}_Att_Rat'].transform(lambda x: x.ewm(span=5, min_periods=1).mean())
             full_df[f'W_{m}_Def'] = full_df.groupby('Team')[f'{m}_Def_Rat'].transform(lambda x: x.ewm(span=5, min_periods=1).mean())
@@ -372,7 +386,7 @@ def calculate_kelly_stake(bankroll, odds, probability, fraction=0.3):
     f = (b * probability - q) / b
     return round(bankroll * max(0, f) * fraction, 2)
 
-def calcola_1x2_dixon_coles(lam_h, lam_a):
+def get_dc_matrix(lam_h, lam_a):
     range_max = 10
     mat = np.zeros((range_max, range_max))
     for i in range(range_max):
@@ -380,16 +394,19 @@ def calcola_1x2_dixon_coles(lam_h, lam_a):
     rho = 0.13
     mat[0,0] *= (1 - (lam_h * lam_a * rho)); mat[0,1] *= (1 + (lam_h * rho))
     mat[1,0] *= (1 + (lam_a * rho)); mat[1,1] *= (1 - rho)
-    mat = mat / np.sum(mat)
+    return mat / np.sum(mat)
+
+def calcola_1x2_dixon_coles(lam_h, lam_a):
+    mat = get_dc_matrix(lam_h, lam_a)
     p1 = np.sum(np.tril(mat,-1)); pX = np.trace(mat); p2 = np.sum(np.triu(mat,1))
     return (1/p1 if p1>0 else 99), (1/pX if pX>0 else 99), (1/p2 if p2>0 else 99)
 
-def calcola_h2h_favorito(val_h, val_a):
+def calcola_h2h_1x2(val_h, val_a):
     r = np.arange(40)
-    pmf_h = poisson.pmf(r, val_h); pmf_a = poisson.pmf(r, val_a)
+    pmf_h = poisson.pmf(r, val_h)
+    pmf_a = poisson.pmf(r, val_a)
     joint = np.outer(pmf_h, pmf_a)
-    p_h = np.sum(np.tril(joint, -1)); p_a = np.sum(np.triu(joint, 1))
-    return p_h, p_a
+    return np.sum(np.tril(joint, -1)), np.trace(joint), np.sum(np.triu(joint, 1))
 
 def find_team_stats_global(team_name, cache_dataframes):
     for league_code, (df_weighted, _, averages, elo_dict) in cache_dataframes.items():
@@ -424,7 +441,6 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
     if elo_diff > 100: html += f"<span class='term-green'>>>> ELO FAVORITE: {h_team} (+{int(elo_diff)})</span>\n"
     elif elo_diff < -100: html += f"<span class='term-green'>>>> ELO FAVORITE: {a_team} (+{int(abs(elo_diff))})</span>\n"
     
-    # ALERT ZONE
     if fatigue_alert: html += f"<div class='term-fatigue'>{fatigue_alert}</div>\n"
     if drop_alert: html += f"<div class='term-drop'>{drop_alert}</div>\n"
 
@@ -451,29 +467,60 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
     xg_h, xg_a = exp_data['xG']
     gl_h, gl_a = exp_data['RealGoals']
     html += f"\n<span class='term-section'>[ ENGINE METRICS ]</span>\n"
-    html += f"CASA -> Real Goals Exp: {gl_h:.2f} | xG Exp: {xg_h:.2f}\n"
-    html += f"OSP  -> Real Goals Exp: {gl_a:.2f} | xG Exp: {xg_a:.2f}\n"
+    html += f"CASA → Real Goals Exp: {gl_h:.2f} | xG Exp: {xg_h:.2f}\n"
+    html += f"OSP  → Real Goals Exp: {gl_a:.2f} | xG Exp: {xg_a:.2f}\n"
 
+    # --- NUOVO BLOCCO TESTA A TESTA (1X2 PER TUTTO) ---
     html += f"\n<span class='term-section'>[ TESTA A TESTA ]</span>\n"
     metrics_cfg = [("GOL", 'Goals'), ("CORNER", 'Corn'), ("TIRI", 'Shots'), ("FALLI", 'Fouls'), ("CARDS", 'Cards')]
     for label, key in metrics_cfg:
-        ph, pa = calcola_h2h_favorito(exp_data[key][0], exp_data[key][1])
-        if ph > pa:
-            fav_str = f"CASA ({ph*100:.0f}%)"
-            if ph >= min_prob: fav_str = f"<span class='term-green'>{fav_str}</span>"
-            else: fav_str = f"<span class='term-dim'>{fav_str}</span>"
-        else:
-            fav_str = f"OSP ({pa*100:.0f}%)"
-            if pa >= min_prob: fav_str = f"<span class='term-green'>{fav_str}</span>"
-            else: fav_str = f"<span class='term-dim'>{fav_str}</span>"
-        val_h, val_a = exp_data[key]
-        html += f"{label:<10}: {fav_str}  [Exp: {val_h:.1f} vs {val_a:.1f}]\n"
+        vh, va = exp_data[key]
+        p1, pX, p2 = calcola_h2h_1x2(vh, va)
+        
+        s1 = f"{p1*100:04.1f}%"
+        sx = f"{pX*100:04.1f}%"
+        s2 = f"{p2*100:04.1f}%"
+        
+        if p1 >= min_prob: s1 = f"<span class='term-green'>{s1}</span>"
+        if pX >= min_prob: sx = f"<span class='term-green'>{sx}</span>"
+        if p2 >= min_prob: s2 = f"<span class='term-green'>{s2}</span>"
+        
+        html += f"{label:<10}: 1 ({s1}) | X ({sx}) | 2 ({s2})   [Exp: {vh:.1f} vs {va:.1f}]\n"
 
+    # --- NUOVO BLOCCO: MERCATI SPECIALI E RISULTATI ESATTI ---
+    mat = get_dc_matrix(exp_data['Goals'][0], exp_data['Goals'][1])
+    prob_ng = mat[0, :].sum() + mat[:, 0].sum() - mat[0,0]
+    prob_gol = 1 - prob_ng
+    
+    html += "\n<span class='term-section'>[ MERCATI SPECIALI GOL ]</span>\n"
+    html += f"GOL (Entrambe Segnano) : {prob_gol*100:04.1f}% | Quota: {1/prob_gol if prob_gol>0 else 99:.2f}\n"
+    html += f"NO GOL                 : {prob_ng*100:04.1f}% | Quota: {1/prob_ng if prob_ng>0 else 99:.2f}\n"
+
+    html += "\n<span class='term-section'>[ TOP 3 RISULTATI ESATTI ]</span>\n"
+    flat_mat = mat.flatten()
+    top_3_idx = flat_mat.argsort()[-3:][::-1]
+    for idx in top_3_idx:
+        p = flat_mat[idx]
+        html += f"{idx // 10}-{idx % 10} ({p*100:04.1f}% | Q: {1/p if p>0 else 99:.2f})\n"
+
+    # --- NUOVO BLOCCO: ANALISI PRIMO TEMPO (HT) ---
+    ht_h_exp = exp_data['HT'][0]
+    ht_a_exp = exp_data['HT'][1]
+    lam_ht = ht_h_exp + ht_a_exp
+    p_ht_05 = 1 - poisson.pmf(0, lam_ht)
+    p_ht_15 = 1 - poisson.pmf(0, lam_ht) - poisson.pmf(1, lam_ht)
+    
+    html += f"\n<span class='term-section'>[ ANALISI PRIMO TEMPO (HT) ]</span>\n"
+    html += f"CASA → Real Goals HT: {ht_h_exp:.2f}\n"
+    html += f"OSP  → Real Goals HT: {ht_a_exp:.2f}\n\n"
+    html += f"Over 0.5 Primo Tempo : {p_ht_05*100:04.1f}% | Quota: {1/p_ht_05 if p_ht_05>0 else 99:.2f}\n"
+    html += f"Over 1.5 Primo Tempo : {p_ht_15*100:04.1f}% | Quota: {1/p_ht_15 if p_ht_15>0 else 99:.2f}\n"
+
+    # --- PROP DETTAGLI --- (Tiri Rimossi)
     prop_configs = [("GOL", exp_data['Goals'], [0.5, 1.5, 2.5], [0.5, 1.5], [1.5, 2.5, 3.5])]
     if league_code not in COMPACT_LEAGUES:
         prop_configs.extend([
-            ("CORNER", exp_data['Corn'], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [8.5, 9.5, 10.5]),
-            ("TIRI", exp_data['Shots'], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [7.5, 8.5, 9.5])
+            ("CORNER", exp_data['Corn'], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [8.5, 9.5, 10.5])
         ])
     
     for label, (eh, ea), r_h, r_a, r_tot in prop_configs:
@@ -533,8 +580,8 @@ with st.sidebar:
     show_mapping_errors = st.checkbox("🛠️ Debug Mapping", value=False)
     inspect_csv_mode = st.checkbox("🔍 ISPEZIONA CSV", value=False)
 
-st.title("SmartBet Pro 60.1")
-st.caption("Engine: Historical Dropping Odds Recorder | Live Fatigue Index | ELO | Hybrid xG")
+st.title("SmartBet Pro 62.0")
+st.caption("Engine: Deep Data | BTTS | Exact Score | HT Engine | Dropping Odds")
 
 # TABS PRINCIPALI
 tab_main, tab_cal = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO"])
@@ -595,7 +642,6 @@ with tab_main:
                         h_team = TEAM_MAPPING.get(h_raw, h_raw)
                         a_team = TEAM_MAPPING.get(a_raw, a_raw)
                         
-                        # PARSE DATE - Fix per il calcolo della stanchezza live
                         raw_date_obj, fmt_date_str = parse_date(m.get('commence_time', ''))
                         
                         h_data, h_elo, h_avgs, h_form, h_lg = find_team_stats_global(h_team, domestic_cache)
@@ -620,7 +666,6 @@ with tab_main:
                         # --- DROPPING ODDS CHECKER ---
                         date_str = str(raw_date_obj)
                         drop_alert = check_dropping_odds(h_team, a_team, date_str, q1_b, qX_b, q2_b)
-                        # -----------------------------
 
                         if h_data is None or a_data is None:
                             if h_data is None: st.session_state['missing_log'].append(f"LEGA {code}: '{h_raw}' -> Missing")
@@ -631,9 +676,9 @@ with tab_main:
                             st.session_state['calendar_data'].append(item_err)
                             continue
 
-                        # --- CALCOLO MATRICE (Goals + xG Hybrid + ELO) ---
+                        # --- CALCOLO MATRICE (Goals + xG + ELO + Corner + Falli + Carte + HT) ---
                         exp_data = {} 
-                        metrics = ['Goals', 'xG', 'Shots', 'Corn', 'Fouls', 'Cards']
+                        metrics = ['Goals', 'xG', 'Shots', 'Corn', 'Fouls', 'Cards', 'HT']
                         for met in metrics:
                             h_att_r = h_data[f'W_{met}_Att']; h_def_r = h_data[f'W_{met}_Def']; h_lea_avg_h = h_avgs[f'{met}_H']
                             a_att_r = a_data[f'W_{met}_Att']; a_def_r = a_data[f'W_{met}_Def']; a_lea_avg_a = a_avgs[f'{met}_A']
@@ -656,7 +701,7 @@ with tab_main:
                         if elo_diff > 100: mix_h *= elo_factor
                         elif elo_diff < -100: mix_a *= elo_factor
 
-                        # --- LIVE FATIGUE ENGINE (Risolto il bug del Liverpool) ---
+                        # --- LIVE FATIGUE ENGINE ---
                         fatigue_alert = ""
                         days_h = (raw_date_obj - h_data['Date'].date()).days
                         if days_h < 4: 
