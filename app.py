@@ -313,19 +313,19 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
                 
         model = genai.GenerativeModel(model_name=model_name)
         
-        prompt = f"""Agisci come un Risk Manager professionista di betting sportivo.
-Analizza il match {h_team} vs {a_team}.
-I nostri modelli matematici hanno prodotto questi numeri:
-- Quote Reali Calcolate (1X2): 1 ({mq1:.2f}), X ({mqx:.2f}), 2 ({mq2:.2f})
-- Vantaggio Matematico (ROI): 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)
+        # COSTRUZIONE BLOCCO METRICHE (Metodo Robusto Anti-SyntaxError)
+        h_xg = float(exp_data['RealGoals'][0])
+        a_xg = float(exp_data['RealGoals'][1])
+        h_corn = float(exp_data['Corn'][0])
+        a_corn = float(exp_data['Corn'][1])
+        
+        metrics = (
+            f"- Expected Goals: {h_team} {h_xg:.2f} vs {a_team} {a_xg:.2f}\n"
+            f"- Expected Corners: {h_team} {h_corn:.2f} vs {a_team} {a_corn:.2f}\n"
+            f"- ROI 1X2: 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)"
+        )
 
-metrics = f"""
-        - Expected Goals: {h_team} {exp_data['RealGoals'][0]:.2f} vs {a_team} {exp_data['RealGoals'][1]:.2f}
-        - Expected Corners: {h_team} {exp_data['Corn'][0]:.2f} vs {a_team} {exp_data['Corn'][1]:.2f}
-        - Expected Cards: {h_team} {exp_data['Cards'][0]:.2f} vs {a_team} {exp_data['Cards'][1]:.2f}
-        - ROI 1X2: 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)
-        """
-prompt = f"""Agisci come un Risk Manager e Analista Tattico senior.
+        prompt = f"""Agisci come un Risk Manager e Analista Tattico senior.
 Analizza il match {h_team} vs {a_team}.
 
 DATI MATEMATICI ENGINE:
