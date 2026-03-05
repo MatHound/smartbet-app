@@ -302,11 +302,12 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 import re
 
-def fetch_live_news(h_team, a_team):
-    """Estrae titoli E riassunti puliti da Google News per match specifico"""
+def get_team_news(team):
+    """Ricerca iper-specifica per intercettare SOLO bollettini medici e squalifiche"""
     try:
-        # Ricerca restrittiva: DEVE contenere entrambe le squadre e parole chiave specifiche
-        query = urllib.parse.quote(f'"{h_team}" "{a_team}" (injury OR missing OR lineup OR out) when:1d')
+        # Query chirurgica: Cerca solo eventi di esclusione certa o conferenze stampa
+        query_str = f'"{team}" ("ruled out" OR suspended OR "miss the match" OR "injury update" OR "press conference") when:2d'
+        query = urllib.parse.quote(query_str)
         url = f"https://news.google.com/rss/search?q={query}&hl=en-GB&gl=GB&ceid=GB:en"
         
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -315,18 +316,22 @@ def fetch_live_news(h_team, a_team):
             
         root = ET.fromstring(xml_data)
         headlines = []
-        for item in root.findall('.//item')[:4]: # Prime 4 notizie ultra-rilevanti
+        for item in root.findall('.//item')[:3]: 
             title = item.find('title').text if item.find('title') is not None else ""
             desc = item.find('description').text if item.find('description') is not None else ""
-            # Pulisce i tag HTML per passare testo puro all'AI
             desc_clean = re.sub('<[^<]+>', '', desc).strip()
-            headlines.append(f"TITOLO: {title}\nDETTAGLIO: {desc_clean}")
+            headlines.append(f"• {title} ({desc_clean})")
             
         if not headlines:
-            return "Nessuna notizia specifica trovata per questo match nelle ultime 24 ore."
-        return "\n---\n".join(headlines)
-    except Exception as e:
-        return f"Errore estrazione feed: {str(e)}"
+            return "Nessun trigger event rilevato."
+        return "\n".join(headlines)
+    except Exception:
+        return "Errore di connessione al feed."
+
+def fetch_live_news(h_team, a_team):
+    h_news = get_team_news(h_team)
+    a_news = get_team_news(a_team)
+    return f"[SILO {h_team}]:\n{h_news}\n\n[SILO {a_team}]:\n{a_news}"
 
 def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi_1x2, mq1, mqx, mq2):
     try:
@@ -337,30 +342,34 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         safe_models = [m for m in available_models if '2.0' not in m and 'vision' not in m]
         
-        if not safe_models:
-            return f"❌ Errore: Nessun modello gratuito trovato."
+        if not safe_models: return "❌ Errore API: Modelli esauriti o non disponibili."
             
         model_name = safe_models[0]
         for m in safe_models:
             if '1.5-flash' in m:
-                model_name = m
-                break
+                model_name = m; break
                 
         model = genai.GenerativeModel(model_name=model_name)
         
-        prompt = f"""Agisci come un Risk Manager professionista.
-Analizza {h_team} vs {a_team} in programma oggi.
+        prompt = f"""Analizza il match {h_team} vs {a_team}.
 Vantaggio Matematico (ROI): 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)
 
-FEED NEWS ESTRATTO (Titoli e Dettagli):
+FEED ESTRATTO (News delle ultime 48h suddivise per squadra):
 {live_news}
 
-Regola zero: Se i testi contengono solo titoli clickbait (es. "injury update") ma NON nominano giocatori specifici infortunati o squalificati, consideralo RUMORE DI FONDO e dichiaralo esplicitamente. Non fare ipotesi.
+PROCEDURA RIGOROSA:
+Scansiona il feed fornito cercando ESCLUSIVAMENTE queste 3 categorie di informazioni:
+1. INFORTUNI CONFERMATI: Giocatori titolari dichiarati esplicitamente "out", "ruled out" o infortunati.
+2. SQUALIFICHE: Giocatori sospesi ("suspended").
+3. TURNOVER CERTO: Dichiarazioni ufficiali dell'allenatore sul riposo di giocatori chiave.
 
-Estrai il segnale dal rumore usando ESATTAMENTE questo formato:
-- IL FATTO: (Una frase secca su chi manca o gioca. Se non ci sono nomi specifici nel testo, scrivi: "Assente ogni anomalia confermata. Solo rumore mediatico").
-- IL SEGNALE: (Perché è importante? Come altera il nostro ROI calcolato?).
-- IL CONTRO-CANTO: (Qual è il bias dei media su questo match? Azione: Conferma Bet, No Bet, Switch).
+Regola di scarto: IGNORA rumor di mercato, opinioni tattiche, resoconti di partite passate e formazioni "probabili" scritte da giornalisti. Se un nome menzionato non fa parte della rosa attuale di {h_team} o {a_team}, scartalo come inquinamento dati.
+
+Restituisci l'output usando ESATTAMENTE questo formato schematico:
+
+- IL FATTO: Una frase secca su chi manca e perché (specifica il team). Se il feed non contiene infortuni/squalifiche esplicite, scrivi testualmente: "Nessun evento scatenante confermato a referto. Solo rumore mediatico."
+- IL SEGNALE: Analizza come l'assenza di questi profili specifici altera l'equilibrio in campo e il nostro calcolo del ROI. Se nessuna assenza: "I dati matematici rimangono il driver primario senza distorsioni esterne."
+- IL CONTRO-CANTO: Qual è il bias narrativo dei media mainstream su questa partita per spingere le scommesse sui favoriti? Cosa ignorano i flussi di mercato? (Concludi con: Azione: Conferma Bet / No Bet / Switch).
 
 Tono oggettivo, sintetico, privo di moralismi."""
 
