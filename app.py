@@ -10,7 +10,7 @@ import google.generativeai as genai
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro 63.1 Risk Manager", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 63.2 Risk Manager", page_icon="🧬", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -294,7 +294,7 @@ def find_team_stats_global(team_name, cache_dataframes):
     return None, 1500, None, "N/A", "N/A"
 
 # ==============================================================================
-# FUNZIONI AI (GOOGLE GEMINI) - FIXED 404
+# FUNZIONI AI (GOOGLE GEMINI) - INIEZIONE DIRETTA "HUMAN-IN-THE-LOOP"
 # ==============================================================================
 
 def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi_1x2, mq1, mqx, mq2, preview_text):
@@ -340,46 +340,6 @@ Tono oggettivo, sintetico, privo di moralismi."""
     except Exception as e:
         return f"❌ Errore API: {str(e)}"
 
-# ==============================================================================
-# MODIFICA ALL'INTERFACCIA (DA INSERIRE DOVE C'È IL PULSANTE AI)
-# ==============================================================================
-# Sostituisci la parte di rendering delle tab (alla fine del file) con questa:
-
-    # RENDERIZZAZIONE TAB PRINCIPALE
-    if st.session_state['results_data']:
-        active_leagues = [l for l in st.session_state['results_data'] if st.session_state['results_data'][l]]
-        if active_leagues:
-            tabs = st.tabs(active_leagues)
-            for i, l in enumerate(active_leagues):
-                with tabs[i]:
-                    for m in st.session_state['results_data'][l]:
-                        with st.expander(m['label']):
-                            st.markdown(m['html'], unsafe_allow_html=True)
-                            
-                            # AI BUTTON CON TEXT AREA (Tab Principale)
-                            if m['is_top_5']:
-                                display_key = f"ai_res_{m['match_id']}"
-                                text_input_key = f"txt_{m['match_id']}"
-                                
-                                st.markdown("---")
-                                st.markdown("📝 **Iniezione Dati Qualitativi (Opzionale)**")
-                                preview_text = st.text_area("Incolla qui l'anteprima da Diretta.it o Sofascore:", key=text_input_key, height=100)
-                                
-                                col1, col2 = st.columns([1, 3])
-                                with col1:
-                                    if st.button("🧠 Genera Risk Management", key=f"btn_{m['match_id']}_main"):
-                                        if not gemini_key_input:
-                                            st.error("Inserisci la chiave Gemini a sinistra!")
-                                        elif not preview_text.strip():
-                                            st.warning("⚠️ Incolla un testo di anteprima prima di generare l'analisi!")
-                                        else:
-                                            with st.spinner("Analisi Risk Management in corso..."):
-                                                d = m['ai_data']
-                                                res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], d['q1'], d['qx'], d['q2'], preview_text)
-                                                st.session_state[display_key] = res
-                                
-                                if display_key in st.session_state:
-                                    st.markdown(f"<div class='ai-box'>{st.session_state[display_key]}</div>", unsafe_allow_html=True)
 # ==============================================================================
 # GENERATORE UI TERMINALE
 # ==============================================================================
@@ -481,12 +441,9 @@ with st.sidebar:
     manual_selection = st.multiselect("Aggiungi Leghe:", options=sorted(list(ALL_LEAGUES.keys())), format_func=lambda x: f"{ALL_LEAGUES[x]} ({x})", default=[])
     final_selection_codes = list(set(active_groups + manual_selection))
     st.caption(f"Totale leghe selezionate: {len(final_selection_codes)}")
-    
-    st.divider()
-    inspect_csv_mode = st.checkbox("🔍 ISPEZIONA CSV", value=False)
 
-st.title("SmartBet Pro 63.1")
-st.caption("Engine: Risk Management AI | Deep Data | Exact Score | HT Engine | Dropping Odds")
+st.title("SmartBet Pro 63.2")
+st.caption("Engine: Deep Data | Risk Management AI (Text Injection) | Exact Score | Dropping Odds")
 
 tab_main, tab_cal = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO"])
 
@@ -561,7 +518,6 @@ with tab_main:
                         
                         html_block = generate_complete_terminal(h_team, a_team, exp_data, {'1':q1_b,'X':qX_b,'2':q2_b}, roi_1x2, min_prob_val, h_data['Date'], a_data['Date'], bankroll_input, h_form, a_form, code, h_elo, a_elo, fatigue_alert, drop_alert)
                         
-                        # Struttura Dati per sincronizzazione UI
                         match_id = f"{h_team}_{a_team}_{raw_date_obj}"
                         item_ok = {
                             'match_id': match_id,
@@ -586,24 +542,31 @@ with tab_main:
                         with st.expander(m['label']):
                             st.markdown(m['html'], unsafe_allow_html=True)
                             
-                            # AI BUTTON (Tab Principale)
                             if m['is_top_5']:
                                 display_key = f"ai_res_{m['match_id']}"
+                                text_input_key = f"txt_{m['match_id']}"
+                                
+                                st.markdown("---")
+                                st.markdown("📝 **Iniezione Dati Qualitativi (Opzionale)**")
+                                preview_text = st.text_area("Incolla qui l'anteprima da Diretta.it o Sofascore:", key=text_input_key, height=100)
+                                
                                 col1, col2 = st.columns([1, 3])
                                 with col1:
-                                    if st.button("🧠 Risk Management AI", key=f"btn_{m['match_id']}_main"):
+                                    if st.button("🧠 Genera Risk Management", key=f"btn_{m['match_id']}_main"):
                                         if not gemini_key_input:
                                             st.error("Inserisci la chiave Gemini a sinistra!")
+                                        elif not preview_text.strip():
+                                            st.warning("⚠️ Incolla un testo di anteprima prima di generare l'analisi!")
                                         else:
-                                            with st.spinner("Ricerca sul web in corso..."):
+                                            with st.spinner("Analisi Risk Management in corso..."):
                                                 d = m['ai_data']
-                                                res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], d['q1'], d['qx'], d['q2'])
+                                                res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], d['q1'], d['qx'], d['q2'], preview_text)
                                                 st.session_state[display_key] = res
                                 
                                 if display_key in st.session_state:
                                     st.markdown(f"<div class='ai-box'>{st.session_state[display_key]}</div>", unsafe_allow_html=True)
 
-# RENDERIZZAZIONE TAB CALENDARIO (Ora Sincronizzata)
+# RENDERIZZAZIONE TAB CALENDARIO (Sync)
 with tab_cal:
     st.markdown("### 📅 Calendario")
     if st.session_state['calendar_data']:
@@ -616,18 +579,25 @@ with tab_cal:
                     with st.expander(m['label']): 
                         st.markdown(m['html'], unsafe_allow_html=True)
                         
-                        # AI BUTTON (Tab Calendario - Sync)
                         if m.get('is_top_5'):
-                            display_key = f"ai_res_{m['match_id']}"
+                            display_key = f"ai_res_{m['match_id']}_cal"
+                            text_input_key = f"txt_{m['match_id']}_cal"
+                            
+                            st.markdown("---")
+                            st.markdown("📝 **Iniezione Dati Qualitativi (Opzionale)**")
+                            preview_text_cal = st.text_area("Incolla qui l'anteprima:", key=text_input_key, height=100)
+                            
                             col1, col2 = st.columns([1, 3])
                             with col1:
-                                if st.button("🧠 Risk Management AI", key=f"btn_{m['match_id']}_cal"):
+                                if st.button("🧠 Genera Risk Management", key=f"btn_{m['match_id']}_cal"):
                                     if not gemini_key_input:
                                         st.error("Inserisci la chiave Gemini a sinistra!")
+                                    elif not preview_text_cal.strip():
+                                        st.warning("⚠️ Incolla un testo di anteprima prima di generare l'analisi!")
                                     else:
-                                        with st.spinner("Ricerca sul web in corso..."):
+                                        with st.spinner("Analisi Risk Management in corso..."):
                                             d = m['ai_data']
-                                            res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], d['q1'], d['qx'], d['q2'])
+                                            res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], d['q1'], d['qx'], d['q2'], preview_text_cal)
                                             st.session_state[display_key] = res
                             
                             if display_key in st.session_state:
