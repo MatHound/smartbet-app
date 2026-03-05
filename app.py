@@ -319,6 +319,18 @@ I nostri modelli matematici hanno prodotto questi numeri:
 - Quote Reali Calcolate (1X2): 1 ({mq1:.2f}), X ({mqx:.2f}), 2 ({mq2:.2f})
 - Vantaggio Matematico (ROI): 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)
 
+metrics = f"""
+        - Expected Goals: {h_team} {exp_data['RealGoals'][0]:.2f} vs {a_team} {exp_data['RealGoals'][1]:.2f}
+        - Expected Corners: {h_team} {exp_data['Corn'][0]:.2f} vs {a_team} {exp_data['Corn'][1]:.2f}
+        - Expected Cards: {h_team} {exp_data['Cards'][0]:.2f} vs {a_team} {exp_data['Cards'][1]:.2f}
+        - ROI 1X2: 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)
+        """
+prompt = f"""Agisci come un Risk Manager e Analista Tattico senior.
+Analizza il match {h_team} vs {a_team}.
+
+DATI MATEMATICI ENGINE:
+{metrics}                    
+
 TESTO DELL'ANTEPRIMA FORNITO DALL'ANALISTA (Leggilo attentamente):
 "{preview_text}"
 
@@ -326,12 +338,17 @@ Esegui questa procedura rigorosa basandoti ESCLUSIVAMENTE sul testo fornito:
 1. Identifica le motivazioni chiave (es. lotta retrocessione, coppe europee).
 2. Estrai i giocatori infortunati o squalificati confermati nel testo.
 3. Ignora le raccomandazioni di scommessa dell'autore del testo (es. "ci aspettiamo entrambe le squadre a segno"). Devi decidere TU incrociando il testo con i NOSTRI dati ROI.
+4. Valuta mercati alternativi (Over/Under, Goal, Corner) se il testo evidenzia criticità specifiche (es. portiere titolare assente, attacco sterile, stile di gioco offensivo) che rendono questi mercati più interessanti del semplice 1X2.
+5. INCROCIO DIFESA/ATTACCO: Se il testo indica assenze pesanti in difesa o portieri fuori, correla con i dati Expected Goals per suggerire Over o Goal.
+6. ANALISI CORNER/CARDS: Se il testo indica stili di gioco aggressivi o gioco sulle fasce, correla con i dati Corner/Cards dell'Engine.
+7. VALUTAZIONE VALUE: Identifica se il ROI sull'1X2 è solido o se è preferibile spostarsi su un mercato "accessorio" (es. Over 2.5, Corner Over) basandoti sulla tattica descritta.
 
 Restituisci l'output usando ESATTAMENTE questo formato:
 
 - IL FATTO: (Sintesi secca di motivazioni, infortuni e squalifiche lette nel testo. Es. "Tottenham in lotta retrocessione, squalificato Romero. Palace privo di Mateta e Lerma"). Se non hai incollato alcun testo, scrivi "Nessun dato fornito".
 - IL SEGNALE: (Come questi fatti impattano il nostro ROI. Es. "Le assenze difensive del Palace e le motivazioni di sopravvivenza del Tottenham rafforzano/indeboliscono la quota...").
 - IL CONTRO-CANTO: (Qual è il bias narrativo del mercato e qual è la mossa giusta per noi. Azione: Conferma Bet, No Bet, Switch Mercato).
+- PRONOSTICO ALTERNATIVO: (Suggerisci un mercato alternativo - Over, Goal, Corner - se i dati e il testo convergono su una statistica specifica).
 
 Tono oggettivo, sintetico, privo di moralismi."""
 
