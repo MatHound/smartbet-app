@@ -603,29 +603,29 @@ with tab_main:
                         with st.expander(m['label']):
                             st.markdown(m['html'], unsafe_allow_html=True)
                             
-                            if m['is_top_5']:
-                                display_key = f"ai_res_{m['match_id']}"
-                                text_input_key = f"txt_{m['match_id']}"
-                                
-                                st.markdown("---")
-                                st.markdown("📝 **Iniezione Dati Qualitativi (Opzionale)**")
-                                preview_text = st.text_area("Incolla qui l'anteprima da Diretta.it o Sofascore:", key=text_input_key, height=100)
-                                
-                                col1, col2 = st.columns([1, 3])
-                                with col1:
-                                    if st.button("🧠 Genera Risk Management", key=f"btn_{m['match_id']}_main"):
-                                        if not gemini_key_input:
-                                            st.error("Inserisci la chiave Gemini a sinistra!")
-                                        elif not preview_text.strip():
-                                            st.warning("⚠️ Incolla un testo di anteprima prima di generare l'analisi!")
-                                        else:
-                                            with st.spinner("Analisi Risk Management in corso..."):
-                                                d = m['ai_data']
-                                                res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], d['q1'], d['qx'], d['q2'], preview_text)
-                                                st.session_state[display_key] = res
-                                
-                                if display_key in st.session_state:
-                                    st.markdown(f"<div class='ai-box'>{st.session_state[display_key]}</div>", unsafe_allow_html=True)
+                            # Sblocco: Box AI visibile per TUTTE le partite
+                            display_key = f"ai_res_{m['match_id']}"
+                            text_input_key = f"txt_{m['match_id']}"
+                            
+                            st.markdown("---")
+                            st.markdown("📝 **Iniezione Dati Qualitativi (Opzionale)**")
+                            preview_text = st.text_area("Incolla qui l'anteprima da Diretta.it o Sofascore:", key=text_input_key, height=100)
+                            
+                            col1, col2 = st.columns([1, 3])
+                            with col1:
+                                if st.button("🧠 Genera Risk Management", key=f"btn_{m['match_id']}_main"):
+                                    if not gemini_key_input:
+                                        st.error("Inserisci la chiave Gemini a sinistra!")
+                                    elif not preview_text.strip():
+                                        st.warning("⚠️ Incolla un testo di anteprima prima di generare l'analisi!")
+                                    else:
+                                        with st.spinner("Analisi Risk Management in corso..."):
+                                            d = m['ai_data']
+                                            res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], d['q1'], d['qx'], d['q2'], preview_text)
+                                            st.session_state[display_key] = res
+                            
+                            if display_key in st.session_state:
+                                st.markdown(f"<div class='ai-box'>{st.session_state[display_key]}</div>", unsafe_allow_html=True)
 
 # RENDERIZZAZIONE TAB CALENDARIO (Sync)
 with tab_cal:
@@ -640,28 +640,28 @@ with tab_cal:
                     with st.expander(m['label']): 
                         st.markdown(m['html'], unsafe_allow_html=True)
                         
-                        if m.get('is_top_5'):
-                            display_key = f"ai_res_{m['match_id']}_cal"
-                            text_input_key = f"txt_{m['match_id']}_cal"
-                            
-                            st.markdown("---")
-                            st.markdown("📝 **Iniezione Dati Qualitativi (Opzionale)**")
-                            preview_text_cal = st.text_area("Incolla qui l'anteprima:", key=text_input_key, height=100)
-                            
-                            col1, col2 = st.columns([1, 3])
-                            with col1:
-                                if st.button("🧠 Genera Risk Management", key=f"btn_{m['match_id']}_cal"):
-                                    if not gemini_key_input:
-                                        st.error("Inserisci la chiave Gemini a sinistra!")
-                                    elif not preview_text_cal.strip():
-                                        st.warning("⚠️ Incolla un testo di anteprima prima di generare l'analisi!")
-                                    else:
-                                        with st.spinner("Analisi Risk Management in corso..."):
-                                            d = m['ai_data']
-                                            res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], d['q1'], d['qx'], d['q2'], preview_text_cal)
-                                            st.session_state[display_key] = res
-                            
-                            if display_key in st.session_state:
-                                st.markdown(f"<div class='ai-box'>{st.session_state[display_key]}</div>", unsafe_allow_html=True)
+                        # Sblocco: Box AI visibile per TUTTE le partite anche nel calendario
+                        display_key = f"ai_res_{m['match_id']}_cal"
+                        text_input_key = f"txt_{m['match_id']}_cal"
+                        
+                        st.markdown("---")
+                        st.markdown("📝 **Iniezione Dati Qualitativi (Opzionale)**")
+                        preview_text_cal = st.text_area("Incolla qui l'anteprima:", key=text_input_key, height=100)
+                        
+                        col1, col2 = st.columns([1, 3])
+                        with col1:
+                            if st.button("🧠 Genera Risk Management", key=f"btn_{m['match_id']}_cal"):
+                                if not gemini_key_input:
+                                    st.error("Inserisci la chiave Gemini a sinistra!")
+                                elif not preview_text_cal.strip():
+                                    st.warning("⚠️ Incolla un testo di anteprima prima di generare l'analisi!")
+                                else:
+                                    with st.spinner("Analisi Risk Management in corso..."):
+                                        d = m['ai_data']
+                                        res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], d['q1'], d['qx'], d['q2'], preview_text_cal)
+                                        st.session_state[display_key] = res
+                        
+                        if display_key in st.session_state:
+                            st.markdown(f"<div class='ai-box'>{st.session_state[display_key]}</div>", unsafe_allow_html=True)
             else: st.warning("Nessuna partita in questa data.")
     else: st.info("Esegui prima la ricerca dei Value Bets per popolare il calendario.")
