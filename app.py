@@ -43,15 +43,15 @@ if 'missing_log' not in st.session_state: st.session_state['missing_log'] = []
 
 # --- DATABASE LEGHE ---
 LEAGUE_GROUPS = {
-    "🇪🇺 Coppe Europee": ['UCL', 'UEL', 'UECL'],
     "🏆 Top 5 (Tier 1)": ['I1', 'E0', 'SP1', 'D1', 'F1'],
-    "⚽ Europe Tier 2": ['N1', 'P1', 'B1', 'T1', 'SC0', 'G1', 'A1', 'SW1'],
-    "📉 Leghe Minori (EU)": ['I2', 'E1', 'E2', 'E3', 'EC', 'D2', 'SP2', 'F2', 'SC1', 'SC2', 'SC3'],
-    "🌎 Leghe Extra (Resto del Mondo)": ['ARG', 'BRA', 'CHN', 'DNK', 'FIN', 'IRL', 'JPN', 'MEX', 'NOR', 'POL', 'ROU', 'RUS', 'SWE', 'USA']
+    "🇪🇺 Coppe Europee": ['UCL', 'UEL', 'UECL'],
+    "📉 Leghe Minori Top 5": ['I2', 'E1', 'E2', 'E3', 'EC', 'D2', 'SP2', 'F2'],
+    "⚽ Leghe Secondarie": ['N1', 'P1', 'B1', 'T1', 'SC0', 'G1', 'A1', 'SW1', 'DNK', 'FIN', 'NOR', 'POL', 'ROU', 'SWE', 'IRL'],
+    "🌎 Leghe Minori & Extra": ['SC1', 'SC2', 'SC3', 'ARG', 'BRA', 'CHN', 'JPN', 'MEX', 'USA']
 }
 
 TOP_5_LEAGUES = LEAGUE_GROUPS["🏆 Top 5 (Tier 1)"]
-COMPACT_LEAGUES = LEAGUE_GROUPS["⚽ Europe Tier 2"] + LEAGUE_GROUPS["📉 Leghe Minori (EU)"] + LEAGUE_GROUPS["🌎 Leghe Extra (Resto del Mondo)"]
+COMPACT_LEAGUES = LEAGUE_GROUPS["📉 Leghe Minori Top 5"] + LEAGUE_GROUPS["⚽ Leghe Secondarie"] + LEAGUE_GROUPS["🌎 Leghe Minori & Extra"]
 
 ALL_LEAGUES = {
     'UCL': '🇪🇺 Champions League', 'UEL': '🇪🇺 Europa League', 'UECL': '🇪🇺 Conference League',
