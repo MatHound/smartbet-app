@@ -293,6 +293,29 @@ def find_team_stats_global(team_name, cache_dataframes):
             return team_stats.iloc[-1], elo_dict.get(team_name, 1500), averages, "-".join(df_weighted[df_weighted['Team'] == team_name].tail(5)['FormChar'].tolist()), league_code
     return None, 1500, None, "N/A", "N/A"
 
+@st.cache_data(ttl=3600) # Aggiorna la cache solo ogni ora per essere super veloce
+def ottieni_leghe_attive_48h():
+    """Legge i calendari gratuiti per capire chi gioca senza usare The Odds API"""
+    leghe_in_campo = []
+    # Controlliamo sia il calendario principale (EU) che quello Extra (Resto del mondo)
+    urls = [
+        "https://www.football-data.co.uk/fixtures.csv",
+        "https://www.football-data.co.uk/new/fixtures.csv"
+    ]
+    oggi = datetime.now().date()
+    limite = oggi + timedelta(days=2) # Copre oggi, domani e dopodomani
+    
+    for url in urls:
+        try:
+            df = pd.read_csv(url)
+            df['Date'] = pd.to_datetime(df['Date'], dayfirst=True, errors='coerce')
+            df_attive = df[(df['Date'].dt.date >= oggi) & (df['Date'].dt.date <= limite)]
+            leghe_in_campo.extend(df_attive['Div'].dropna().unique().tolist())
+        except:
+            continue
+            
+    return list(set(leghe_in_campo))
+
 # ==============================================================================
 # FUNZIONI AI (GOOGLE GEMINI) - INIEZIONE DIRETTA "HUMAN-IN-THE-LOOP"
 # ==============================================================================
@@ -456,7 +479,31 @@ with st.sidebar:
                 
     st.markdown("#### 2️⃣ Selezione Manuale")
     manual_selection = st.multiselect("Aggiungi Leghe:", options=sorted(list(ALL_LEAGUES.keys())), format_func=lambda x: f"{ALL_LEAGUES[x]} ({x})", default=[])
+    st.markdown("#### 2️⃣ Selezione Manuale")
+    manual_selection = st.multiselect("Aggiungi Leghe:", options=sorted(list(ALL_LEAGUES.keys())), format_func=lambda x: f"{ALL_LEAGUES[x]} ({x})", default=[])
+    
+    # Genera la lista iniziale
     final_selection_codes = list(set(active_groups + manual_selection))
+    
+    st.divider()
+    st.markdown("### 🛡️ Gestione API")
+    api_saver = st.checkbox("Attiva API Saver (Consigliato)", value=True, help="Controlla gratuitamente i calendari ed esclude le leghe ferme per non sprecare token API.")
+    
+    if api_saver and final_selection_codes:
+        leghe_in_campo_oggi = ottieni_leghe_attive_48h()
+        # Filtra le leghe: mantiene solo quelle che giocano o le coppe europee (che non sono nel CSV gratuito)
+        leghe_salvate = [c for c in final_selection_codes if c in leghe_in_campo_oggi or c in ['UCL', 'UEL', 'UECL']]
+        
+        API_risparmiate = len(final_selection_codes) - len(leghe_salvate)
+        final_selection_codes = leghe_salvate
+        
+        if API_risparmiate > 0:
+            st.success(f"🛡️ API Saver ha escluso {API_risparmiate} leghe ferme. Analizzo solo le {len(final_selection_codes)} in campo.")
+        else:
+            st.info(f"Tutte le {len(final_selection_codes)} leghe selezionate sono attive.")
+            
+    else:
+        st.caption(f"Totale leghe selezionate: {len(final_selection_codes)} (Nessun filtro API)")
     st.caption(f"Totale leghe selezionate: {len(final_selection_codes)}")
 
 st.title("SmartBet Pro 63.2")
