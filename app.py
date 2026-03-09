@@ -455,7 +455,7 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
     return html
 
 # ==============================================================================
-# INTERFACCIA PRINCIPALE
+# INTERFACCIA PRINCIPALE E SIDEBAR
 # ==============================================================================
 
 with st.sidebar:
@@ -477,8 +477,6 @@ with st.sidebar:
             if st.checkbox(g_name, value=(g_name == "🏆 Top 5 (Tier 1)")):
                 active_groups.extend(g_codes)
                 
-    st.markdown("#### 2️⃣ Selezione Manuale")
-    manual_selection = st.multiselect("Aggiungi Leghe:", options=sorted(list(ALL_LEAGUES.keys())), format_func=lambda x: f"{ALL_LEAGUES[x]} ({x})", default=[])
     st.markdown("#### 2️⃣ Selezione Manuale")
     manual_selection = st.multiselect("Aggiungi Leghe:", options=sorted(list(ALL_LEAGUES.keys())), format_func=lambda x: f"{ALL_LEAGUES[x]} ({x})", default=[])
     
@@ -504,7 +502,6 @@ with st.sidebar:
             
     else:
         st.caption(f"Totale leghe selezionate: {len(final_selection_codes)} (Nessun filtro API)")
-    st.caption(f"Totale leghe selezionate: {len(final_selection_codes)}")
 
 st.title("SmartBet Pro 63.2")
 st.caption("Engine: Deep Data | Risk Management AI (Text Injection) | Exact Score | Dropping Odds")
