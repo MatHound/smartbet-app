@@ -361,11 +361,11 @@ Esegui questa procedura rigorosa basandoti ESCLUSIVAMENTE sul testo fornito:
 1. Identifica le motivazioni chiave (es. lotta retrocessione, coppe europee).
 2. Estrai i giocatori infortunati o squalificati confermati nel testo.
 3. Ignora le raccomandazioni di scommessa dell'autore del testo (es. "ci aspettiamo entrambe le squadre a segno"). Devi decidere TU incrociando il testo con i NOSTRI dati ROI.
-4. KILL SWITCH (REGOLA DI SCARTO): Valuta se le notizie riportano turnover estremo, partite inutili ai fini della classifica, informazioni contrastanti o se i dati matematici semplicemente non offrono margine. Se il rischio è inaccettabile, devi TASSATIVAMENTE annullare l'operazione.
-5. Valuta mercati alternativi (Over/Under, Goal, Corner) se il testo evidenzia criticità specifiche (es. portiere titolare assente, attacco sterile, stile di gioco offensivo) che rendono questi mercati più interessanti del semplice 1X2.
-6. INCROCIO DIFESA/ATTACCO: Se il testo indica assenze pesanti in difesa o portieri fuori, correla con i dati Expected Goals per suggerire Over o Goal.
-7. ANALISI CORNER/CARDS: Se il testo indica stili di gioco aggressivi o gioco sulle fasce, correla con i dati Corner/Cards dell'Engine.
-8. VALUTAZIONE VALUE: Identifica se il ROI sull'1X2 è solido o se è preferibile spostarsi su un mercato "accessorio" (es. Over 2.5, Corner Over) basandoti sulla tattica descritta.
+4. Valuta mercati alternativi (Over/Under, Goal, Corner) se il testo evidenzia criticità specifiche (es. portiere titolare assente, attacco sterile, stile di gioco offensivo) che rendono questi mercati più interessanti del semplice 1X2.
+5. INCROCIO DIFESA/ATTACCO: Se il testo indica assenze pesanti in difesa o portieri fuori, correla con i dati Expected Goals per suggerire Over o Goal.
+6. ANALISI CORNER/CARDS: Se il testo indica stili di gioco aggressivi o gioco sulle fasce, correla con i dati Corner/Cards dell'Engine.
+7. VALUTAZIONE VALUE: Identifica se il ROI sull'1X2 è solido o se è preferibile spostarsi su un mercato "accessorio" (es. Over 2.5, Corner Over) basandoti sulla tattica descritta.
+8. KILL SWITCH (REGOLA DI SCARTO): Valuta se le notizie riportano turnover estremo, partite inutili ai fini della classifica, informazioni contrastanti o se i dati matematici semplicemente non offrono margine. Se il rischio è inaccettabile, devi TASSATIVAMENTE annullare l'operazione.
 
 Restituisci l'output usando ESATTAMENTE questo formato:
 
