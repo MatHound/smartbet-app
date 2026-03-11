@@ -348,7 +348,7 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
             f"- ROI 1X2: 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)"
         )
 
-        prompt = f"""Agisci come un Risk Manager e Analista Tattico senior.
+        prompt = f"""Agisci come un Risk Manager e Analista Tattico senior di un fondo speculativo sportivo. Il tuo obiettivo PRIMARIO è la conservazione del capitale. Non hai alcun obbligo di forzare una giocata.
 Analizza il match {h_team} vs {a_team}.
 
 DATI MATEMATICI ENGINE:
@@ -361,17 +361,24 @@ Esegui questa procedura rigorosa basandoti ESCLUSIVAMENTE sul testo fornito:
 1. Identifica le motivazioni chiave (es. lotta retrocessione, coppe europee).
 2. Estrai i giocatori infortunati o squalificati confermati nel testo.
 3. Ignora le raccomandazioni di scommessa dell'autore del testo (es. "ci aspettiamo entrambe le squadre a segno"). Devi decidere TU incrociando il testo con i NOSTRI dati ROI.
-4. Valuta mercati alternativi (Over/Under, Goal, Corner) se il testo evidenzia criticità specifiche (es. portiere titolare assente, attacco sterile, stile di gioco offensivo) che rendono questi mercati più interessanti del semplice 1X2.
-5. INCROCIO DIFESA/ATTACCO: Se il testo indica assenze pesanti in difesa o portieri fuori, correla con i dati Expected Goals per suggerire Over o Goal.
-6. ANALISI CORNER/CARDS: Se il testo indica stili di gioco aggressivi o gioco sulle fasce, correla con i dati Corner/Cards dell'Engine.
-7. VALUTAZIONE VALUE: Identifica se il ROI sull'1X2 è solido o se è preferibile spostarsi su un mercato "accessorio" (es. Over 2.5, Corner Over) basandoti sulla tattica descritta.
+4. KILL SWITCH (REGOLA DI SCARTO): Valuta se le notizie riportano turnover estremo, partite inutili ai fini della classifica, informazioni contrastanti o se i dati matematici semplicemente non offrono margine. Se il rischio è inaccettabile, devi TASSATIVAMENTE annullare l'operazione.
+5. Valuta mercati alternativi (Over/Under, Goal, Corner) se il testo evidenzia criticità specifiche (es. portiere titolare assente, attacco sterile, stile di gioco offensivo) che rendono questi mercati più interessanti del semplice 1X2.
+6. INCROCIO DIFESA/ATTACCO: Se il testo indica assenze pesanti in difesa o portieri fuori, correla con i dati Expected Goals per suggerire Over o Goal.
+7. ANALISI CORNER/CARDS: Se il testo indica stili di gioco aggressivi o gioco sulle fasce, correla con i dati Corner/Cards dell'Engine.
+8. VALUTAZIONE VALUE: Identifica se il ROI sull'1X2 è solido o se è preferibile spostarsi su un mercato "accessorio" (es. Over 2.5, Corner Over) basandoti sulla tattica descritta.
 
 Restituisci l'output usando ESATTAMENTE questo formato:
 
-- IL FATTO: (Sintesi secca di motivazioni, infortuni e squalifiche lette nel testo. Es. "Tottenham in lotta retrocessione, squalificato Romero. Palace privo di Mateta e Lerma"). Se non hai incollato alcun testo, scrivi "Nessun dato fornito".
-- IL SEGNALE: (Come questi fatti impattano il nostro ROI. Es. "Le assenze difensive del Palace e le motivazioni di sopravvivenza del Tottenham rafforzano/indeboliscono la quota...").
-- IL CONTRO-CANTO: (Qual è il bias narrativo del mercato e qual è la mossa giusta per noi. Azione: Conferma Bet, No Bet, Switch Mercato).
-- PRONOSTICO ALTERNATIVO: (Suggerisci un mercato alternativo - Over, Goal, Corner - se i dati e il testo convergono su una statistica specifica).
+OPZIONE A - (Usa questo formato se si attiva il KILL SWITCH e la partita va scartata):
+⛔ NO BET
+- MOTIVAZIONE: [Massimo 2 righe spietate sul perché il rischio matematico, tattico o motivazionale è inaccettabile e la scommessa va evitata].
+
+OPZIONE B - (Usa questo formato SOLO se c'è un vantaggio asimmetrico netto e validato):
+- IL FATTO: (Sintesi secca di motivazioni, infortuni e squalifiche lette nel testo. Se non hai incollato alcun testo, scrivi "Nessun dato fornito").
+- IL SEGNALE: (Come questi fatti impattano il nostro ROI. Es. "Le assenze difensive del Palace rafforzano la quota...").
+- IL CONTRO-CANTO: (Qual è il bias narrativo del mercato e qual è la mossa giusta per noi. Azione: Conferma Bet o Switch Mercato).
+- PRONOSTICO PRINCIPALE: (La tua scelta primaria, es. 1, X, 2, Over 2.5)
+- PRONOSTICO ALTERNATIVO: (Suggerisci un mercato accessorio rifugio - Over, Goal, Corner - SE E SOLO SE i dati e il testo convergono in modo evidente su quella statistica).
 
 Tono oggettivo, sintetico, privo di moralismi."""
 
