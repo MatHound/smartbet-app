@@ -558,21 +558,25 @@ with tab_main:
                 if league_name not in st.session_state['results_data']: st.session_state['results_data'][league_name] = []
                 
                 matches = get_live_matches(api_key_input, API_MAPPING.get(code, ''))
-
+               
                 # ---------------------------------------------------------
-                # SCANNER DEBUG ASSOLUTO (Da mettere prima di ogni filtro)
+                # SCANNER DEBUG & SCUDO API
                 # ---------------------------------------------------------
+                if isinstance(matches, dict):
+                    # L'API ha restituito un errore invece di una lista (es. Rate Limit o Token finiti)
+                    api_error = matches.get('message', 'Errore sconosciuto dal server API')
+                    st.error(f"❌ Blocco The Odds API per {league_name}: {api_error}")
+                    continue # Salta questa lega e non far crashare l'app
+                
                 if debug_mode:
                     if not matches:
-                        # Se la lista è vuota, l'API non ha restituito nulla per questa lega
-                        st.warning(f"⚠️ NESSUN DATO per {league_name}. L'API potrebbe aver cambiato il codice sport_key per questa competizione, o non ci sono quote disponibili.")
+                        st.warning(f"⚠️ NESSUN DATO per {league_name}. L'API non ha quote disponibili al momento.")
                     else:
                         squadre_non_mappate = set()
                         for m_debug in matches:
                             h_raw = m_debug.get('home_team', '')
                             a_raw = m_debug.get('away_team', '')
                             
-                            # Scansiona le Squadre
                             if h_raw and h_raw not in TEAM_MAPPING.keys() and h_raw not in TEAM_MAPPING.values():
                                 squadre_non_mappate.add(h_raw)
                             if a_raw and a_raw not in TEAM_MAPPING.keys() and a_raw not in TEAM_MAPPING.values():
