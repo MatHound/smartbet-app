@@ -503,6 +503,14 @@ with st.sidebar:
     
     # Genera la lista iniziale
     final_selection_codes = list(set(active_groups + manual_selection))
+
+    st.divider()
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🛠️ Manutenzione Motore")
+    debug_mode = st.sidebar.toggle("Attiva Scanner Anomalie (Debug)")
+    
+    if debug_mode:
+        st.sidebar.warning("⚠️ Scanner Attivo: I nomi non mappati compariranno nella schermata principale durante la ricerca.")
     
     st.divider()
     st.markdown("### 🛡️ Gestione API")
