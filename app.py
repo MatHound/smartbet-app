@@ -380,7 +380,21 @@ OPZIONE B - (Usa questo formato SOLO se c'è un vantaggio asimmetrico netto e va
 - PRONOSTICO PRINCIPALE: (La tua scelta primaria, es. 1, X, 2, Over 2.5)
 - PRONOSTICO ALTERNATIVO: (Suggerisci un mercato accessorio rifugio - Over, Goal, Corner - SE E SOLO SE i dati e il testo convergono in modo evidente su quella statistica).
 
-Tono oggettivo, sintetico, privo di moralismi."""
+---
+📊 EXECUTIVE SUMMARY: {h_team} vs {a_team}
+📋 BILANCIA DEL RISCHIO:
+* ➕ PRO: [1 riga sul punto di forza a favore del nostro pronostico]
+* ➖ CONTRO: [1 riga sul rischio latente o punto di debolezza]
+
+🧠 LOGICA RISK: [1 riga sintetica: perché questa quota ha valore reale contro il bookmaker?]
+
+🚀 ACTION PLAN:
+* MERCATO CONSIGLIATO: [Il pronostico definitivo da giocare]
+* CONFIDENZA MERCATO CONSIGLIATO: [Valuta da 1 a 5 stelle ⭐ in base a quanto i dati matematici e le news convergono]
+* MERCATO ALTERNATIVO CONSIGLIATO: [Alternativa al pronostico definitivo da giocare]
+* CONFIDENZA MERCATO ALTERNATIVO CONSIGLIATO: [Valuta da 1 a 5 stelle ⭐ in base a quanto i dati matematici e le news convergono]
+
+Tono oggettivo, sintetico, spietato, privo di moralismi."""
 
         response = model.generate_content(prompt)
         return response.text
