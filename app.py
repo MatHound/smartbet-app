@@ -69,7 +69,7 @@ ALL_LEAGUES = {
 }
 
 API_MAPPING = {
-    'UCL': 'soccer_uefa_champs_league', 'UEL': 'soccer_uefa_europa_league', 'UECL': 'soccer_uefa_euro_conference',
+    'UCL': 'soccer_uefa_champs_league', 'UEL': 'soccer_uefa_europa_league', 'UECL': 'soccer_uefa_europa_conference_league',
     'I1': 'soccer_italy_serie_a', 'I2': 'soccer_italy_serie_b',
     'E0': 'soccer_epl', 'E1': 'soccer_efl_champ', 'E2': 'soccer_england_league1', 'E3': 'soccer_england_league2',
     'SP1': 'soccer_spain_la_liga', 'SP2': 'soccer_spain_segunda_division',
@@ -143,7 +143,9 @@ TEAM_MAPPING = {
     'Basaksehir': 'Basaksehir', 'Istanbul Basaksehir': 'Basaksehir', 'Besiktas JK': 'Besiktas', 'Besiktas': 'Besiktas', 'Eyüpspor': 'Eyupspor', 'Fatih Karagümrük': 'Karagumruk',
     'Gazişehir Gaziantep': 'Gaziantep', 'Genclerbirligi SK': 'Genclerbirligi', 'Goztepe': 'Goztepe', 'Kasimpasa SK': 'Kasimpasa', 'Kasimpasa': 'Kasimpasa', 'Torku Konyaspor': 'Konyaspor', 'Çaykur Rizespor': 'Rizespor',
     'Galatasaray': 'Galatasaray', 'Fenerbahce': 'Fenerbahce', 'Trabzonspor': 'Trabzonspor', 'Celtic': 'Celtic', 'Rangers': 'Rangers', 'Rangers FC': 'Rangers',
-    'Aberdeen': 'Aberdeen', 'Hearts': 'Hearts', 'KRC Genk': 'Genk', 'Union Saint-Gilloise': 'St Gilloise', 'AS Monaco': 'Monaco', 'AS Roma': 'Roma', 'Roma': 'Roma', 'Grimsby': 'Grimsby', 'Bodo/Glimt': 'Bodo/Glimt'
+    'Aberdeen': 'Aberdeen', 'Hearts': 'Hearts', 'KRC Genk': 'Genk', 'Union Saint-Gilloise': 'St Gilloise', 'AS Monaco': 'Monaco', 'AS Roma': 'Roma', 'Roma': 'Roma', 'Grimsby': 'Grimsby', 'Bodo/Glimt': 'Bodo/Glimt',
+    'Ferencváros TC': 'Ferencvaros', 'Aston Villa': 'Aston Villa', 'FC Midtjylland': 'Midtjylland', 'Bologna': 'Bologna', 'Arsenal': 'Arsenal', 'Bodø/Glimt': 'Bodo/Glimt', 'Barcelona': 'Barcelona', 'Liverpool': 'Liverpool',
+    'Chelsea': 'Chelsea', 'Real Madrid': 'Real Madrid',
 }
 
 # ==============================================================================
