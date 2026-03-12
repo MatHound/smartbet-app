@@ -145,7 +145,8 @@ TEAM_MAPPING = {
     'Galatasaray': 'Galatasaray', 'Fenerbahce': 'Fenerbahce', 'Trabzonspor': 'Trabzonspor', 'Celtic': 'Celtic', 'Rangers': 'Rangers', 'Rangers FC': 'Rangers',
     'Aberdeen': 'Aberdeen', 'Hearts': 'Hearts', 'KRC Genk': 'Genk', 'Union Saint-Gilloise': 'St Gilloise', 'AS Monaco': 'Monaco', 'AS Roma': 'Roma', 'Roma': 'Roma', 'Grimsby': 'Grimsby', 'Bodo/Glimt': 'Bodo/Glimt',
     'Ferencváros TC': 'Ferencvaros', 'Aston Villa': 'Aston Villa', 'FC Midtjylland': 'Midtjylland', 'Bologna': 'Bologna', 'Arsenal': 'Arsenal', 'Bodø/Glimt': 'Bodo/Glimt', 'Barcelona': 'Barcelona', 'Liverpool': 'Liverpool',
-    'Chelsea': 'Chelsea', 'Real Madrid': 'Real Madrid',
+    'Chelsea': 'Chelsea', 'Real Madrid': 'Real Madrid', 'HNK Rijeka': 'Rijeka', 'Sparta Prague': 'Sparta Prague', 'Lech Poznań': 'Lech Poznan', 'Fiorentina': 'Fiorentina', 'Crystal Palace': 'Crystal Palace', 'Shakhtar Donetsk': 'Shakhtar Donetsk',
+    'Raków Częstochowa': 'Rakow Czestochowa', 'NK Celje': 'Celje', 'Sigma Olomouc': 'Sigma Olomouc', 'Strasbourg': 'Strasbourg', 'AEK Larnaca': 'AEK Larnaca', 'Samsunspor': 'Samsunspor',
 }
 
 # ==============================================================================
