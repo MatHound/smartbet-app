@@ -10,7 +10,7 @@ import google.generativeai as genai
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro 63.2 Risk Manager", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 64", page_icon="🧬", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -198,11 +198,37 @@ def calculate_elo_updates(df_matches, league_code):
         elo_dict[h] = rh + 32 * (sa_home - ea_home); elo_dict[a] = ra + 32 * (sa_away - ea_away)
     return elo_dict
 
-def calculate_synthetic_xg(row):
+def train_xg_regression(df):
+    """IDEA 2: Regressione Lineare per calcolare il peso REALE di tiri e corner sui gol"""
+    try:
+        # Prepara i dati storici (Rimuovi i NaN)
+        df_clean = df.dropna(subset=['HST', 'HS', 'HC', 'FTHG', 'AST', 'AS', 'AC', 'FTAG']).copy()
+        if len(df_clean) < 50: return [0.32, 0.05, 0.03], [0.32, 0.05, 0.03] # Fallback se pochi dati
+        
+        # Modello Casa
+        X_h = np.column_stack((df_clean['HST'], np.maximum(0, df_clean['HS'] - df_clean['HST']), df_clean['HC']))
+        y_h = df_clean['FTHG']
+        pesi_h, _, _, _ = np.linalg.lstsq(X_h, y_h, rcond=None)
+        
+        # Modello Trasferta
+        X_a = np.column_stack((df_clean['AST'], np.maximum(0, df_clean['AS'] - df_clean['AST']), df_clean['AC']))
+        y_a = df_clean['FTAG']
+        pesi_a, _, _, _ = np.linalg.lstsq(X_a, y_a, rcond=None)
+        
+        # Previene pesi negativi illogici
+        pesi_h = np.maximum(pesi_h, [0.10, 0.01, 0.01])
+        pesi_a = np.maximum(pesi_a, [0.10, 0.01, 0.01])
+        return pesi_h, pesi_a
+    except:
+        return [0.32, 0.05, 0.03], [0.32, 0.05, 0.03] # Fallback di sicurezza
+
+def apply_dynamic_xg(row, p_h, p_a):
     try:
         hs, hst, hc = float(row.get('HS', 0)), float(row.get('HST', 0)), float(row.get('HC', 0))
         as_, ast, ac = float(row.get('AS', 0)), float(row.get('AST', 0)), float(row.get('AC', 0))
-        return (hst * 0.32) + (max(0, hs - hst) * 0.05) + (hc * 0.03), (ast * 0.32) + (max(0, as_ - ast) * 0.05) + (ac * 0.03)
+        xg_h = (hst * p_h[0]) + (max(0, hs - hst) * p_h[1]) + (hc * p_h[2])
+        xg_a = (ast * p_a[0]) + (max(0, as_ - ast) * p_a[1]) + (ac * p_a[2])
+        return xg_h, xg_a
     except: return 0.0, 0.0
 
 @st.cache_data(ttl=3600)
@@ -222,8 +248,11 @@ def scarica_dati(codice_lega):
         for col in ['HST','AST','HC','AC','HF','AF','HY','AY', 'HTHG', 'HTAG']:
             if col not in df.columns: df[col] = 0.0
             else: df[col] = df[col].fillna(0.0)
+            
+        # APPLICA LA REGRESSIONE LINEARE DINAMICA (Miglioria 2)
+        pesi_h, pesi_a = train_xg_regression(df)
+        df['xG_H'], df['xG_A'] = zip(*df.apply(lambda row: apply_dynamic_xg(row, pesi_h, pesi_a), axis=1))
         
-        df['xG_H'], df['xG_A'] = zip(*df.apply(calculate_synthetic_xg, axis=1))
         df['Result'] = np.where(df['FTHG'] > df['FTAG'], 'H', np.where(df['FTHG'] < df['FTAG'], 'A', 'D'))
         
         elo_ratings = calculate_elo_updates(df, codice_lega)
@@ -287,6 +316,21 @@ def calcola_1x2_dixon_coles(lam_h, lam_a):
 def calcola_h2h_1x2(val_h, val_a):
     joint = np.outer(poisson.pmf(np.arange(40), val_h), poisson.pmf(np.arange(40), val_a))
     return np.sum(np.tril(joint, -1)), np.trace(joint), np.sum(np.triu(joint, 1))
+
+def simula_monte_carlo(lam_h, lam_a, sims=10000):
+    """IDEA 4: Simulazione Monte Carlo per intercettare la volatilità e i mercati Over/Under/GOL"""
+    # Genera 10.000 partite virtuali
+    gol_h = np.random.poisson(lam_h, sims)
+    gol_a = np.random.poisson(lam_a, sims)
+    
+    p1 = np.mean(gol_h > gol_a)
+    pX = np.mean(gol_h == gol_a)
+    p2 = np.mean(gol_h < gol_a)
+    
+    p_ov25 = np.mean((gol_h + gol_a) > 2.5)
+    p_gol = np.mean((gol_h > 0) & (gol_a > 0))
+    
+    return (1/p1 if p1>0 else 99), (1/pX if pX>0 else 99), (1/p2 if p2>0 else 99), p_ov25, p_gol
 
 def find_team_stats_global(team_name, cache_dataframes):
     for league_code, (df_weighted, _, averages, elo_dict) in cache_dataframes.items():
@@ -534,7 +578,7 @@ with st.sidebar:
     else:
         st.caption(f"Totale leghe selezionate: {len(final_selection_codes)} (Nessun filtro API)")
 
-st.title("SmartBet Pro 63.2")
+st.title("SmartBet Pro 64")
 st.caption("Engine: Deep Data | Risk Management AI (Text Injection) | Exact Score | Dropping Odds")
 
 tab_main, tab_cal = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO"])
@@ -561,7 +605,7 @@ with tab_main:
                 if league_name not in st.session_state['results_data']: st.session_state['results_data'][league_name] = []
                 
                 matches = get_live_matches(api_key_input, API_MAPPING.get(code, ''))
-               
+                
                 # ---------------------------------------------------------
                 # SCANNER DEBUG & SCUDO API
                 # ---------------------------------------------------------
@@ -589,9 +633,6 @@ with tab_main:
                             st.error(f"🚨 SQUADRE NON RICONOSCIUTE IN {league_name}: {', '.join(squadre_non_mappate)}")
                 # ---------------------------------------------------------
 
-                if matches:
-                    for m in matches:
-                        if 'home_team' not in m: continue
                 if matches:
                     for m in matches:
                         if 'home_team' not in m: continue
@@ -625,9 +666,17 @@ with tab_main:
                             exp_data[met] = (val_h, val_a)
                         exp_data['RealGoals'] = exp_data['Goals'] 
 
-                        mix_h, mix_a = (exp_data['Goals'][0] * 0.5 + exp_data['xG'][0] * 0.5, exp_data['Goals'][1] * 0.5 + exp_data['xG'][1] * 0.5) if exp_data['xG'][0] > 0 and exp_data['xG'][1] > 0 else exp_data['Goals']
-                        if h_elo - a_elo > 100: mix_h *= 1.05
-                        elif a_elo - h_elo > 100: mix_a *= 1.05
+                        # IDEA 1: Opponent-Adjusted Metrics via ELO Differenziale Dinamico
+                        mix_h = exp_data['Goals'][0] * 0.4 + exp_data['xG'][0] * 0.6
+                        mix_a = exp_data['Goals'][1] * 0.4 + exp_data['xG'][1] * 0.6
+                        
+                        elo_diff = h_elo - a_elo
+                        if elo_diff > 0:
+                            moltiplicatore = 1 + (min(elo_diff, 300) / 1000) # Fino a un max del +30%
+                            mix_h *= moltiplicatore
+                        elif elo_diff < 0:
+                            moltiplicatore = 1 + (min(abs(elo_diff), 300) / 1000)
+                            mix_a *= moltiplicatore
 
                         fatigue_alert = ""
                         if (raw_date_obj - h_data['Date'].date()).days < 4: mix_h *= 0.85; fatigue_alert += f"⚠️ STANCHEZZA: {h_team}\n"
@@ -636,8 +685,28 @@ with tab_main:
                         exp_data['Goals'] = (mix_h, mix_a)
                         if q1_b == 0: continue
                         
-                        my_q1, my_qX, my_q2 = calcola_1x2_dixon_coles(mix_h, mix_a)
+                        # IDEA 4: Integrazione Poisson + Monte Carlo
+                        mc_q1, mc_qX, mc_q2, mc_ov25, mc_gol = simula_monte_carlo(mix_h, mix_a)
+                        dc_q1, dc_qX, dc_q2 = calcola_1x2_dixon_coles(mix_h, mix_a)
+                        
+                        # Blend 50/50 tra modello matematico statico e simulazione dinamica
+                        my_q1 = (mc_q1 + dc_q1) / 2
+                        my_qX = (mc_qX + dc_qX) / 2
+                        my_q2 = (mc_q2 + dc_q2) / 2
+
                         roi_1x2 = {'1': ((1/my_q1)*q1_b)-1, 'X': ((1/my_qX)*qX_b)-1, '2': ((1/my_q2)*q2_b)-1}
+                        
+                        # IDEA 3: Wisdom of the Crowd (Sharp Money Alert)
+                        if q1_b > 0 and qX_b > 0 and q2_b > 0:
+                            aggio = (1/q1_b) + (1/qX_b) + (1/q2_b)
+                            impl_1 = (1/q1_b) / aggio
+                            impl_2 = (1/q2_b) / aggio
+                            
+                            # Se il bookmaker sta crollando le quote a dismisura (indicando soldi "sharp" asiatici)
+                            if impl_1 > (1/my_q1) * 1.20:
+                                drop_alert += f"🚨 SHARP MONEY: Il mercato spinge l'1 del {h_team} (Value Trappola?)\n"
+                            if impl_2 > (1/my_q2) * 1.20:
+                                drop_alert += f"🚨 SHARP MONEY: Il mercato spinge il 2 del {a_team} (Value Trappola?)\n"
                         
                         html_block = generate_complete_terminal(h_team, a_team, exp_data, {'1':q1_b,'X':qX_b,'2':q2_b}, roi_1x2, min_prob_val, h_data['Date'], a_data['Date'], bankroll_input, h_form, a_form, code, h_elo, a_elo, fatigue_alert, drop_alert)
                         
