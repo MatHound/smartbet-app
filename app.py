@@ -10,7 +10,7 @@ import google.generativeai as genai
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro 64", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 63.2 Risk Manager", page_icon="🧬", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -56,13 +56,13 @@ COMPACT_LEAGUES = LEAGUE_GROUPS["📉 Leghe Minori Top 5"] + LEAGUE_GROUPS["⚽ 
 ALL_LEAGUES = {
     'UCL': '🇪🇺 Champions League', 'UEL': '🇪🇺 Europa League', 'UECL': '🇪🇺 Conference League',
     'I1': '🇮🇹 Serie A', 'E0': '🇬🇧 Premier League', 'SP1': '🇪🇸 La Liga', 'D1': '🇩🇪 Bundesliga', 'F1': '🇫🇷 Ligue 1',
-    'N1': '🇳🇱 Eredivisie', 'P1': '🇵🇹 Primeira Liga', 'B1': 'soccer_belgium_first_div', 'T1': '🇹🇷 Super Lig',
-    'SC0': 'soccer_spl', 'G1': '🇬🇷 Super League', 'A1': '🇦🇹 Bundesliga', 'SW1': '🇨🇭 Super League',
+    'N1': '🇳🇱 Eredivisie', 'P1': '🇵🇹 Primeira Liga', 'B1': '🇧🇪 Pro League', 'T1': '🇹🇷 Super Lig',
+    'SC0': '🏴󠁧󠁢󠁳󠁣󠁴󠁿 Premiership', 'G1': '🇬🇷 Super League', 'A1': '🇦🇹 Bundesliga', 'SW1': '🇨🇭 Super League',
     'I2': '🇮🇹 Serie B', 'E1': '🇬🇧 Championship', 'E2': '🇬🇧 League One', 'E3': '🇬🇧 League Two', 'EC': '🇬🇧 National League',
     'D2': '🇩🇪 Bundesliga 2', 'SP2': '🇪🇸 Segunda', 'F2': '🇫🇷 Ligue 2',
-    'SC1': 'Championship', 'SC2': 'League One', 'SC3': 'League Two',
-    'ARG': 'soccer_argentina_primera_division', 'BRA': '🇧🇷 Brazil Serie A', 'CHN': '🇨🇳 China Super League',
-    'DNK': '🇩🇰 Denmark Superliga', 'FIN': '🇫🇮 Finland Veikkausliiga', 'IRL': 'soccer_league_of_ireland',
+    'SC1': '🏴󠁧󠁢󠁳󠁣󠁴󠁿 Championship', 'SC2': '🏴󠁧󠁢󠁳󠁣󠁴󠁿 League One', 'SC3': '🏴󠁧󠁢󠁳󠁣󠁴󠁿 League Two',
+    'ARG': '🇦🇷 Argentina Primera', 'BRA': '🇧🇷 Brazil Serie A', 'CHN': '🇨🇳 China Super League',
+    'DNK': '🇩🇰 Denmark Superliga', 'FIN': '🇫🇮 Finland Veikkausliiga', 'IRL': '🇮🇪 Ireland Premier',
     'JPN': '🇯🇵 Japan J-League', 'MEX': '🇲🇽 Mexico Liga MX', 'NOR': '🇳🇴 Norway Eliteserien',
     'POL': '🇵🇱 Poland Ekstraklasa', 'ROU': '🇷🇴 Romania Liga 1', 'RUS': '🇷🇺 Russia Premier',
     'SWE': '🇸🇪 Sweden Allsvenskan', 'USA': '🇺🇸 USA MLS'
@@ -76,11 +76,11 @@ API_MAPPING = {
     'D1': 'soccer_germany_bundesliga', 'D2': 'soccer_germany_bundesliga2',
     'F1': 'soccer_france_ligue_one', 'F2': 'soccer_france_ligue_two',
     'N1': 'soccer_netherlands_eredivisie', 'P1': 'soccer_portugal_primeira_liga', 
-    'B1': 'soccer_belgium_pro_league', 'T1': 'soccer_turkey_super_league',
-    'SC0': 'soccer_spfl_prem', 'G1': 'soccer_greece_super_league', 
+    'B1': 'soccer_belgium_first_div', 'T1': 'soccer_turkey_super_league',
+    'SC0': 'soccer_spl', 'G1': 'soccer_greece_super_league', 
     'A1': 'soccer_austria_bundesliga', 'SW1': 'soccer_switzerland_superleague',
-    'ARG': 'soccer_argentina_primera', 'BRA': 'soccer_brazil_campeonato', 'CHN': 'soccer_china_superleague',
-    'DNK': 'soccer_denmark_superliga', 'FIN': 'soccer_finland_veikkausliiga', 'IRL': 'soccer_ireland_premier_division',
+    'ARG': 'soccer_argentina_primera_division', 'BRA': 'soccer_brazil_campeonato', 'CHN': 'soccer_china_superleague',
+    'DNK': 'soccer_denmark_superliga', 'FIN': 'soccer_finland_veikkausliiga', 'IRL': 'soccer_league_of_ireland',
     'JPN': 'soccer_japan_j_league', 'MEX': 'soccer_mexico_ligamx', 'NOR': 'soccer_norway_eliteserien',
     'POL': 'soccer_poland_ekstraklasa', 'SWE': 'soccer_sweden_allsvenskan', 'USA': 'soccer_usa_mls'
 }
@@ -95,9 +95,6 @@ LEAGUE_COEFF = {
 }
 
 TEAM_MAPPING = {
-    # ==========================================
-    # 🇮🇹 ITALIA (Serie A, Serie B, Serie C)
-    # ==========================================
     'Inter Milan': 'Inter', 'AC Milan': 'Milan', 'Napoli': 'Napoli', 'Juventus': 'Juventus', 
     'Atalanta BC': 'Atalanta', 'Hellas Verona': 'Verona', 'Udinese Calcio': 'Udinese',
     'Cagliari Calcio': 'Cagliari', 'US Lecce': 'Lecce', 'Empoli FC': 'Empoli', 
@@ -112,10 +109,6 @@ TEAM_MAPPING = {
     'Cittadella': 'Cittadella', 'Mantova': 'Mantova', 'Cesena FC': 'Cesena', 'Cesena': 'Cesena', 
     'Juve Stabia': 'Juve Stabia', 'Carrarese': 'Carrarese', 'Pescara': 'Pescara', 
     'Padova': 'Padova', 'Avellino': 'Avellino', 'Virtus Entella': 'Entella',
-
-    # ==========================================
-    # 🇬🇧 INGHILTERRA (Premier, Championship, L1, L2)
-    # ==========================================
     'Manchester United': 'Man United', 'Manchester City': 'Man City', 'Tottenham Hotspur': 'Tottenham', 
     'Newcastle United': 'Newcastle', 'Wolverhampton Wanderers': 'Wolves', 'Brighton and Hove Albion': 'Brighton',
     'West Ham United': 'West Ham', 'Leeds United': 'Leeds', 'Leicester City': 'Leicester', 
@@ -147,10 +140,6 @@ TEAM_MAPPING = {
     'Walsall': 'Walsall', 'Colchester United': 'Colchester', 'Bromley FC': 'Bromley', 
     'Grimsby Town': 'Grimsby', 'Fleetwood Town': 'Fleetwood', 'Crawley Town': 'Crawley', 
     'Tranmere Rovers': 'Tranmere',
-
-    # ==========================================
-    # 🇪🇸 SPAGNA (La Liga, Segunda)
-    # ==========================================
     'Atlético Madrid': 'Ath Madrid', 'Atletico Madrid': 'Ath Madrid', 'Real Madrid': 'Real Madrid', 
     'Barcelona': 'Barcelona', 'Athletic Bilbao': 'Ath Bilbao', 'Real Betis': 'Betis', 
     'Real Sociedad': 'Sociedad', 'Rayo Vallecano': 'Vallecano', 'Alavés': 'Alaves', 
@@ -164,10 +153,6 @@ TEAM_MAPPING = {
     'Málaga': 'Malaga', 'Real Racing Club de Santander': 'Santander', 'Real Valladolid CF': 'Valladolid', 
     'SD Eibar': 'Eibar', 'SD Huesca': 'Huesca', 'Sporting Gijón': 'Sp Gijon', 'Real Sociedad B': 'Sociedad B',
     'Oviedo': 'Oviedo', 'Zaragoza': 'Zaragoza', 'Cultural Leonesa': 'Cultural Leonesa', 'Albacete': 'Albacete',
-
-    # ==========================================
-    # 🇩🇪 GERMANIA (Bundesliga 1 & 2)
-    # ==========================================
     'Bayern Munich': 'Bayern Munich', 'Bayer Leverkusen': 'Leverkusen', 'Borussia Dortmund': 'Dortmund', 
     'Borussia Monchengladbach': "M'gladbach", '1. FC Köln': 'FC Koln', 'FSV Mainz 05': 'Mainz', 
     'Mainz 05': 'Mainz', 'VfL Wolfsburg': 'Wolfsburg', 'TSG Hoffenheim': 'Hoffenheim', 
@@ -181,10 +166,6 @@ TEAM_MAPPING = {
     'Hannover 96': 'Hannover', 'Hertha Berlin': 'Hertha', 'Karlsruher SC': 'Karlsruhe', 
     'SC Paderborn': 'Paderborn', 'SV Darmstadt 98': 'Darmstadt', 'SC Preußen Münster': 'Preussen Munster',
     'Elversberg': 'Elversberg',
-
-    # ==========================================
-    # 🇫🇷 FRANCIA (Ligue 1 & Ligue 2)
-    # ==========================================
     'Paris Saint Germain': 'Paris SG', 'Marseille': 'Marseille', 'Lyon': 'Lyon', 'RC Lens': 'Lens', 
     'AS Monaco': 'Monaco', 'Lille OSC': 'Lille', 'Nice': 'Nice', 'Brest': 'Brest', 'Strasbourg': 'Strasbourg',
     'Angers': 'Angers', 'Le Havre': 'Le Havre', 'Rennes': 'Rennes', 'Nantes': 'Nantes', 
@@ -194,10 +175,6 @@ TEAM_MAPPING = {
     'SC Bastia': 'Bastia', 'Le Mans FC': 'Le Mans', 'Red Star': 'Red Star', 'Pau FC': 'Pau', 
     'Amiens': 'Amiens', 'Stade Lavallois': 'Laval', 'Rodez AF': 'Rodez', 'Annecy FC': 'Annecy', 
     'Troyes': 'Troyes', 'USL Dunkerque': 'Dunkerque', 'Nancy': 'Nancy', 'Guingamp': 'Guingamp',
-
-    # ==========================================
-    # 🇳🇱 OLANDA (Eredivisie)
-    # ==========================================
     'PSV Eindhoven': 'PSV Eindhoven', 'Feyenoord Rotterdam': 'Feyenoord', 'Ajax Amsterdam': 'Ajax', 
     'AZ Alkmaar': 'AZ Alkmaar', 'FC Twente': 'Twente', 'FC Twente Enschede': 'Twente', 
     'Sparta Rotterdam': 'Sparta Rotterdam', 'NEC Nijmegen': 'Nijmegen', 'Go Ahead Eagles': 'Go Ahead Eagles', 
@@ -205,20 +182,12 @@ TEAM_MAPPING = {
     'Almere City': 'Almere City', 'RKC Waalwijk': 'Waalwijk', 'SC Heerenveen': 'Heerenveen', 
     'Heracles Almelo': 'Heracles', 'FC Volendam': 'Volendam', 'SC Telstar': 'Telstar', 
     'FC Utrecht': 'Utrecht', 'NAC Breda': 'NAC Breda', 'Groningen': 'Groningen', 'Excelsior': 'Excelsior',
-
-    # ==========================================
-    # 🇵🇹 PORTOGALLO (Primeira Liga)
-    # ==========================================
     'Benfica': 'Benfica', 'FC Porto': 'Porto', 'Sporting CP': 'Sp Lisbon', 'Sporting Lisbon': 'Sp Lisbon',
     'Vitoria Guimaraes': 'Guimaraes', 'Vitória SC': 'Guimaraes', 'Boavista FC': 'Boavista', 
     'Estoril Praia': 'Estoril', 'Casa Pia AC': 'Casa Pia', 'Farense': 'Farense', 'Arouca': 'Arouca', 
     'Gil Vicente': 'Gil Vicente', 'AVS Futebol SAD': 'Avs', 'Braga': 'Sp Braga', 'SC Braga': 'Sp Braga', 
     'CF Estrela': 'Estrela', 'Famalicão': 'Famalicao', 'Moreirense FC': 'Moreirense', 'Rio Ave FC': 'Rio Ave',
     'Nacional': 'Nacional', 'Santa Clara': 'Santa Clara', 'Alverca': 'Alverca', 'Tondela': 'Tondela',
-
-    # ==========================================
-    # 🇹🇷 TURCHIA (Super Lig)
-    # ==========================================
     'Galatasaray': 'Galatasaray', 'Fenerbahce': 'Fenerbahce', 'Besiktas JK': 'Besiktas', 'Besiktas': 'Besiktas',
     'Trabzonspor': 'Trabzonspor', 'Basaksehir': 'Basaksehir', 'Istanbul Basaksehir': 'Basaksehir', 
     'Goztepe': 'Goztepe', 'Eyüpspor': 'Eyupspor', 'Fatih Karagümrük': 'Karagumruk', 
@@ -226,19 +195,11 @@ TEAM_MAPPING = {
     'Kasimpasa': 'Kasimpasa', 'Torku Konyaspor': 'Konyaspor', 'Çaykur Rizespor': 'Rizespor', 
     'Samsunspor': 'Samsunspor', 'Antalyaspor': 'Antalyaspor', 'Kayserispor': 'Kayserispor', 
     'Kocaelispor': 'Kocaelispor', 'Alanyaspor': 'Alanyaspor',
-
-    # ==========================================
-    # 🇬🇷 GRECIA (Super League)
-    # ==========================================
     'Olympiakos Piraeus': 'Olympiakos', 'Panathinaikos FC': 'Panathinaikos', 'AEK Athens': 'AEK',
     'PAOK Thessaloniki': 'PAOK', 'PAOK Salonika': 'PAOK', 'Aris Thessaloniki': 'Aris', 
     'AE Kifisia FC': 'Kifisia', 'Levadiakos': 'Levadiakos', 'Panetolikos Agrinio': 'Panetolikos', 
     'Volos FC': 'Volos NFC', 'AEL': 'Larisa', 'Atromitos Athens': 'Atromitos', 'Panserraikos FC': 'Panserraikos',
     'Asteras Tripolis': 'Asteras Tripolis', 'OFI Crete': 'OFI',
-
-    # ==========================================
-    # 🇦🇹 AUSTRIA & 🇨🇭 SVIZZERA
-    # ==========================================
     'RB Salzburg': 'Salzburg', 'Red Bull Salzburg': 'Salzburg', 'Salzburg': 'Salzburg', 
     'Austria Wien': 'Austria Vienna', 'Rapid Wien': 'Rapid Vienna', 'Sturm Graz': 'Sturm Graz', 
     'SK Sturm Graz': 'Sturm Graz', 'LASK': 'LASK Linz', 'FC Blau-Weiß Linz': 'BW Linz', 
@@ -250,16 +211,8 @@ TEAM_MAPPING = {
     'FC Thun': 'Thun', 'Thun': 'Thun', 'FC Winterthur': 'Winterthur', 'Winterthur': 'Winterthur', 
     'FC Zurich': 'Zurich', 'Zurich': 'Zurich', 'Grasshopper Zürich': 'Grasshoppers', 
     'Grasshopper': 'Grasshoppers', 'Servette': 'Servette',
-
-    # ==========================================
-    # 🏴󠁧󠁢󠁳󠁣󠁴󠁿 SCOZIA & 🇧🇪 BELGIO
-    # ==========================================
     'Celtic': 'Celtic', 'Rangers': 'Rangers', 'Rangers FC': 'Rangers', 'Aberdeen': 'Aberdeen', 'Hearts': 'Hearts',
     'KRC Genk': 'Genk', 'Union Saint-Gilloise': 'St Gilloise',
-
-    # ==========================================
-    # 🇪🇺 ALTRE NAZIONI EUROPEE (Polonia, Danimarca, Svezia, Norvegia, Est Europa)
-    # ==========================================
     'Bodø/Glimt': 'Bodo/Glimt', 'Bodo/Glimt': 'Bodo/Glimt', 'Ferencváros TC': 'Ferencvaros', 
     'FC Midtjylland': 'Midtjylland', 'HNK Rijeka': 'Rijeka', 'Sparta Prague': 'Sparta Prague', 
     'Lech Poznań': 'Lech Poznan', 'Shakhtar Donetsk': 'Shakhtar Donetsk', 'Raków Częstochowa': 'Rakow Czestochowa', 
@@ -280,10 +233,6 @@ TEAM_MAPPING = {
     'Fredrikstad FK': 'Fredrikstad', 'SK Brann': 'Brann', 'Aalesund': 'Aalesund', 'Tromso': 'Tromso', 
     'Viking FK': 'Viking', 'IK Start': 'Start', 'Kristiansund BK': 'Kristiansund', 'Lillestrom': 'Lillestrom', 
     'KFUM': 'KFUM Oslo', 'Vålerenga': 'Valerenga', 'Sandefjord': 'Sandefjord', 'Molde': 'Molde',
-
-    # ==========================================
-    # 🌎 AMERICHE (Brasile, Argentina, Messico, USA)
-    # ==========================================
     'Internacional': 'Internacional', 'Coritiba': 'Coritiba', 'Santos': 'Santos', 'Fluminense': 'Fluminense', 
     'Cruzeiro': 'Cruzeiro', 'Chapecoense': 'Chapecoense', 'Atletico Paranaense': 'Athletico-PR', 
     'Corinthians': 'Corinthians', 'Bahia': 'Bahia', 'Palmeiras': 'Palmeiras', 'Sao Paulo': 'Sao Paulo', 
@@ -305,10 +254,6 @@ TEAM_MAPPING = {
     'Nashville SC': 'Nashville SC', 'Portland Timbers': 'Portland Timbers', 'Minnesota United FC': 'Minnesota United', 
     'FC Cincinnati': 'FC Cincinnati', 'Vancouver Whitecaps FC': 'Vancouver Whitecaps', 
     'New York Red Bulls': 'New York Red Bulls', 'Toronto FC': 'Toronto FC',
-
-    # ==========================================
-    # 🌏 ASIA (Cina, Giappone)
-    # ==========================================
     'Tianjin Jinmen Tiger FC': 'Tianjin Jinmen Tiger', 'Shanghai Shenhua FC': 'Shanghai Shenhua', 
     'Wuhan Three Towns': 'Wuhan Three Towns', 'Zhejiang': 'Zhejiang Professional', 'Yunnan Yukun': 'Yunnan Yukun', 
     'Liaoning Tieren FC': 'Liaoning Tieren', 'Henan FC': 'Henan Songshan Longmen', 'Shanghai SIPG FC': 'Shanghai Port', 
@@ -375,28 +320,20 @@ def calculate_elo_updates(df_matches, league_code):
     return elo_dict
 
 def train_xg_regression(df):
-    """IDEA 2: Regressione Lineare per calcolare il peso REALE di tiri e corner sui gol"""
     try:
-        # Prepara i dati storici (Rimuovi i NaN)
         df_clean = df.dropna(subset=['HST', 'HS', 'HC', 'FTHG', 'AST', 'AS', 'AC', 'FTAG']).copy()
-        if len(df_clean) < 50: return [0.32, 0.05, 0.03], [0.32, 0.05, 0.03] # Fallback se pochi dati
-        
-        # Modello Casa
+        if len(df_clean) < 50: return [0.32, 0.05, 0.03], [0.32, 0.05, 0.03] 
         X_h = np.column_stack((df_clean['HST'], np.maximum(0, df_clean['HS'] - df_clean['HST']), df_clean['HC']))
         y_h = df_clean['FTHG']
         pesi_h, _, _, _ = np.linalg.lstsq(X_h, y_h, rcond=None)
-        
-        # Modello Trasferta
         X_a = np.column_stack((df_clean['AST'], np.maximum(0, df_clean['AS'] - df_clean['AST']), df_clean['AC']))
         y_a = df_clean['FTAG']
         pesi_a, _, _, _ = np.linalg.lstsq(X_a, y_a, rcond=None)
-        
-        # Previene pesi negativi illogici
         pesi_h = np.maximum(pesi_h, [0.10, 0.01, 0.01])
         pesi_a = np.maximum(pesi_a, [0.10, 0.01, 0.01])
         return pesi_h, pesi_a
     except:
-        return [0.32, 0.05, 0.03], [0.32, 0.05, 0.03] # Fallback di sicurezza
+        return [0.32, 0.05, 0.03], [0.32, 0.05, 0.03] 
 
 def apply_dynamic_xg(row, p_h, p_a):
     try:
@@ -425,12 +362,9 @@ def scarica_dati(codice_lega):
             if col not in df.columns: df[col] = 0.0
             else: df[col] = df[col].fillna(0.0)
             
-        # APPLICA LA REGRESSIONE LINEARE DINAMICA (Miglioria 2)
         pesi_h, pesi_a = train_xg_regression(df)
         df['xG_H'], df['xG_A'] = zip(*df.apply(lambda row: apply_dynamic_xg(row, pesi_h, pesi_a), axis=1))
-        
         df['Result'] = np.where(df['FTHG'] > df['FTAG'], 'H', np.where(df['FTHG'] < df['FTAG'], 'A', 'D'))
-        
         elo_ratings = calculate_elo_updates(df, codice_lega)
 
         avgs = {
@@ -494,18 +428,13 @@ def calcola_h2h_1x2(val_h, val_a):
     return np.sum(np.tril(joint, -1)), np.trace(joint), np.sum(np.triu(joint, 1))
 
 def simula_monte_carlo(lam_h, lam_a, sims=10000):
-    """IDEA 4: Simulazione Monte Carlo per intercettare la volatilità e i mercati Over/Under/GOL"""
-    # Genera 10.000 partite virtuali
     gol_h = np.random.poisson(lam_h, sims)
     gol_a = np.random.poisson(lam_a, sims)
-    
     p1 = np.mean(gol_h > gol_a)
     pX = np.mean(gol_h == gol_a)
     p2 = np.mean(gol_h < gol_a)
-    
     p_ov25 = np.mean((gol_h + gol_a) > 2.5)
     p_gol = np.mean((gol_h > 0) & (gol_a > 0))
-    
     return (1/p1 if p1>0 else 99), (1/pX if pX>0 else 99), (1/p2 if p2>0 else 99), p_ov25, p_gol
 
 def find_team_stats_global(team_name, cache_dataframes):
@@ -516,20 +445,15 @@ def find_team_stats_global(team_name, cache_dataframes):
             return team_stats.iloc[-1], elo_dict.get(team_name, 1500), averages, "-".join(df_weighted[df_weighted['Team'] == team_name].tail(5)['FormChar'].tolist()), league_code
     return None, 1500, None, "N/A", "N/A"
 
-@st.cache_data(ttl=3600) # Aggiorna la cache solo ogni ora per essere super veloce
-@st.cache_data(ttl=3600) # Aggiorna la cache solo ogni ora per essere super veloce
-
+@st.cache_data(ttl=3600)
 def ottieni_leghe_attive_48h():
-    """Legge i calendari gratuiti aggirando i blocchi HTTP (User-Agent) e gestendo server vuoti"""
     leghe_in_campo = []
     urls = [
         "https://www.football-data.co.uk/fixtures.csv",
         "https://www.football-data.co.uk/new/fixtures.csv"
     ]
     oggi = datetime.now().date()
-    limite = oggi + timedelta(days=2) # Copre oggi, domani e dopodomani
-    
-    # Mascheriamo la richiesta per far credere al server che siamo un browser Google Chrome
+    limite = oggi + timedelta(days=2) 
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
     
     for url in urls:
@@ -545,18 +469,14 @@ def ottieni_leghe_attive_48h():
         except:
             continue
             
-    # Se la lista è completamente vuota, significa che il server sorgente non ha ancora caricato i dati del weekend.
-    # Restituiamo 'None' per comunicare all'App l'anomalia, non '0' leghe.
-    if not leghe_in_campo:
-        return None
-        
+    if not leghe_in_campo: return None
     return list(set(leghe_in_campo))
 
 # ==============================================================================
 # FUNZIONI AI (GOOGLE GEMINI) - INIEZIONE DIRETTA "HUMAN-IN-THE-LOOP"
 # ==============================================================================
 
-def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi_1x2, mq1, mqx, mq2, preview_text):
+def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi_1x2, mq1, mqx, mq2, preview_text, h_elo, a_elo, fatigue_alert, drop_alert):
     try:
         genai.configure(api_key=gemini_api_key)
         
@@ -572,7 +492,6 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
                 
         model = genai.GenerativeModel(model_name=model_name)
         
-        # COSTRUZIONE BLOCCO METRICHE (Metodo Robusto Anti-SyntaxError)
         h_xg = float(exp_data['RealGoals'][0])
         a_xg = float(exp_data['RealGoals'][1])
         h_corn = float(exp_data['Corn'][0])
@@ -599,12 +518,12 @@ TESTO DELL'ANTEPRIMA FORNITO DALL'ANALISTA (Leggilo attentamente):
 Esegui questa procedura rigorosa basandoti ESCLUSIVAMENTE sul testo fornito:
 1. Identifica le motivazioni chiave (es. lotta retrocessione, coppe europee).
 2. Estrai i giocatori infortunati o squalificati confermati nel testo.
-3. Ignora le raccomandazioni di scommessa dell'autore del testo (es. "ci aspettiamo entrambe le squadre a segno"). Devi decidere TU incrociando il testo con i NOSTRI dati ROI.
-4. Valuta mercati alternativi (Over/Under, Goal, Corner) se il testo evidenzia criticità specifiche (es. portiere titolare assente, attacco sterile, stile di gioco offensivo) che rendono questi mercati più interessanti del semplice 1X2.
-5. INCROCIO DIFESA/ATTACCO: Se il testo indica assenze pesanti in difesa o portieri fuori, correla con i dati Expected Goals per suggerire Over o Goal.
-6. ANALISI CORNER/CARDS: Se il testo indica stili di gioco aggressivi o gioco sulle fasce, correla con i dati Corner/Cards dell'Engine.
-7. VALUTAZIONE VALUE: Identifica se il ROI sull'1X2 è solido o se è preferibile spostarsi su un mercato "accessorio" (es. Over 2.5, Corner Over) basandoti sulla tattica descritta.
-8. KILL SWITCH (REGOLA DI SCARTO): Valuta se le notizie riportano turnover estremo, partite inutili ai fini della classifica, informazioni contrastanti o se i dati matematici semplicemente non offrono margine. Se il rischio è inaccettabile, devi TASSATIVAMENTE annullare l'operazione.
+3. Ignora le raccomandazioni di scommessa dell'autore del testo. Devi decidere TU incrociando il testo con i NOSTRI dati ROI.
+4. Valuta mercati alternativi (Over/Under, Goal, Corner) se il testo evidenzia criticità specifiche.
+5. INCROCIO DIFESA/ATTACCO: Se il testo indica assenze pesanti, correla con i dati Expected Goals per suggerire Over o Goal.
+6. VALUTAZIONE VALUE: Identifica se il ROI sull'1X2 è solido o se è preferibile spostarsi su un mercato "accessorio".
+7. KILL SWITCH (REGOLA DI SCARTO): Valuta se le notizie riportano turnover estremo o dati che smentiscono i calcoli. Se il rischio è inaccettabile, devi TASSATIVAMENTE annullare l'operazione.
+8. Attenzione agli Sharp Money: se i fondi stanno manipolando la quota (vedi Alert Mercato), valuta se è una trappola o una conferma.
 
 Restituisci l'output usando ESATTAMENTE questo formato:
 
@@ -613,11 +532,11 @@ OPZIONE A - (Usa questo formato se si attiva il KILL SWITCH e la partita va scar
 - MOTIVAZIONE: [Massimo 2 righe spietate sul perché il rischio matematico, tattico o motivazionale è inaccettabile e la scommessa va evitata].
 
 OPZIONE B - (Usa questo formato SOLO se c'è un vantaggio asimmetrico netto e validato):
-- IL FATTO: (Sintesi secca di motivazioni, infortuni e squalifiche lette nel testo. Se non hai incollato alcun testo, scrivi "Nessun dato fornito").
-- IL SEGNALE: (Come questi fatti impattano il nostro ROI. Es. "Le assenze difensive del Palace rafforzano la quota...").
-- IL CONTRO-CANTO: (Qual è il bias narrativo del mercato e qual è la mossa giusta per noi. Azione: Conferma Bet o Switch Mercato).
+- IL FATTO: (Sintesi secca di motivazioni e infortuni lette nel testo. Se non hai incollato alcun testo, scrivi "Nessun dato fornito").
+- IL SEGNALE: (Come questi fatti impattano il nostro ROI e gli alert di mercato).
+- IL CONTRO-CANTO: (Qual è il bias narrativo del mercato e qual è la mossa giusta per noi).
 - PRONOSTICO PRINCIPALE: (La tua scelta primaria, es. 1, X, 2, Over 2.5)
-- PRONOSTICO ALTERNATIVO: (Suggerisci un mercato accessorio rifugio - Over, Goal, Corner - SE E SOLO SE i dati e il testo convergono in modo evidente su quella statistica).
+- PRONOSTICO ALTERNATIVO: (Suggerisci un mercato accessorio rifugio - Over, Goal, Corner).
 
 ---
 📊 EXECUTIVE SUMMARY: {h_team} vs {a_team}
@@ -629,9 +548,9 @@ OPZIONE B - (Usa questo formato SOLO se c'è un vantaggio asimmetrico netto e va
 
 🚀 ACTION PLAN:
 * MERCATO CONSIGLIATO: [Il pronostico definitivo da giocare]
-* CONFIDENZA MERCATO CONSIGLIATO: [Valuta da 1 a 5 stelle ⭐ in base a quanto i dati matematici e le news convergono]
-* MERCATO ALTERNATIVO CONSIGLIATO: [Alternativa al pronostico definitivo da giocare]
-* CONFIDENZA MERCATO ALTERNATIVO CONSIGLIATO: [Valuta da 1 a 5 stelle ⭐ in base a quanto i dati matematici e le news convergono]
+* CONFIDENZA MERCATO CONSIGLIATO: [Valuta da 1 a 5 stelle ⭐]
+* MERCATO ALTERNATIVO CONSIGLIATO: [Alternativa al pronostico definitivo]
+* CONFIDENZA MERCATO ALTERNATIVO: [Valuta da 1 a 5 stelle ⭐]
 
 Tono oggettivo, sintetico, spietato, privo di moralismi."""
 
@@ -740,7 +659,6 @@ with st.sidebar:
     st.markdown("#### 2️⃣ Selezione Manuale")
     manual_selection = st.multiselect("Aggiungi Leghe:", options=sorted(list(ALL_LEAGUES.keys())), format_func=lambda x: f"{ALL_LEAGUES[x]} ({x})", default=[])
     
-    # Genera la lista iniziale
     final_selection_codes = list(set(active_groups + manual_selection))
 
     st.sidebar.markdown("---")
@@ -752,20 +670,15 @@ with st.sidebar:
     
     st.divider()
     st.markdown("### 🛡️ Gestione API")
-    
     api_saver = st.checkbox("Attiva API Saver (Consigliato)", value=True, help="Controlla gratuitamente i calendari ed esclude le leghe ferme per non sprecare token API.")
     
     if api_saver and final_selection_codes:
         leghe_in_campo_oggi = ottieni_leghe_attive_48h()
         
         if leghe_in_campo_oggi is None:
-            # FALLBACK INTELLIGENTE: Il sito sorgente è in aggiornamento. 
-            # Non tagliamo nessuna lega per non rischiare di farti perdere partite giocabili.
-            st.warning("⚠️ Database calendari remoto in manutenzione. API Saver in bypass temporaneo: scansiono tutte le leghe per sicurezza.")
+            st.warning("⚠️ Database calendari remoto offline. API Saver in bypass temporaneo: scansiono tutte le leghe.")
         else:
-            # Funzionamento normale: Filtra le leghe mantenendo solo quelle che giocano o le coppe
             leghe_salvate = [c for c in final_selection_codes if c in leghe_in_campo_oggi or c in ['UCL', 'UEL', 'UECL']]
-            
             API_risparmiate = len(final_selection_codes) - len(leghe_salvate)
             final_selection_codes = leghe_salvate
             
@@ -776,7 +689,8 @@ with st.sidebar:
             
     else:
         st.caption(f"Totale leghe selezionate: {len(final_selection_codes)} (Nessun filtro API)")
-st.title("SmartBet Pro 64")
+
+st.title("SmartBet Pro 63.2")
 st.caption("Engine: Deep Data | Risk Management AI (Text Injection) | Exact Score | Dropping Odds")
 
 tab_main, tab_cal = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO"])
@@ -804,14 +718,10 @@ with tab_main:
                 
                 matches = get_live_matches(api_key_input, API_MAPPING.get(code, ''))
                 
-                # ---------------------------------------------------------
-                # SCANNER DEBUG & SCUDO API
-                # ---------------------------------------------------------
                 if isinstance(matches, dict):
-                    # L'API ha restituito un errore invece di una lista (es. Rate Limit o Token finiti)
                     api_error = matches.get('message', 'Errore sconosciuto dal server API')
                     st.error(f"❌ Blocco The Odds API per {league_name}: {api_error}")
-                    continue # Salta questa lega e non far crashare l'app
+                    continue 
                 
                 if debug_mode:
                     if not matches:
@@ -829,7 +739,6 @@ with tab_main:
                                 
                         if squadre_non_mappate:
                             st.error(f"🚨 SQUADRE NON RICONOSCIUTE IN {league_name}: {', '.join(squadre_non_mappate)}")
-                # ---------------------------------------------------------
 
                 if matches:
                     for m in matches:
@@ -864,13 +773,12 @@ with tab_main:
                             exp_data[met] = (val_h, val_a)
                         exp_data['RealGoals'] = exp_data['Goals'] 
 
-                        # IDEA 1: Opponent-Adjusted Metrics via ELO Differenziale Dinamico
                         mix_h = exp_data['Goals'][0] * 0.4 + exp_data['xG'][0] * 0.6
                         mix_a = exp_data['Goals'][1] * 0.4 + exp_data['xG'][1] * 0.6
                         
                         elo_diff = h_elo - a_elo
                         if elo_diff > 0:
-                            moltiplicatore = 1 + (min(elo_diff, 300) / 1000) # Fino a un max del +30%
+                            moltiplicatore = 1 + (min(elo_diff, 300) / 1000)
                             mix_h *= moltiplicatore
                         elif elo_diff < 0:
                             moltiplicatore = 1 + (min(abs(elo_diff), 300) / 1000)
@@ -883,28 +791,22 @@ with tab_main:
                         exp_data['Goals'] = (mix_h, mix_a)
                         if q1_b == 0: continue
                         
-                        # IDEA 4: Integrazione Poisson + Monte Carlo
                         mc_q1, mc_qX, mc_q2, mc_ov25, mc_gol = simula_monte_carlo(mix_h, mix_a)
                         dc_q1, dc_qX, dc_q2 = calcola_1x2_dixon_coles(mix_h, mix_a)
                         
-                        # Blend 50/50 tra modello matematico statico e simulazione dinamica
                         my_q1 = (mc_q1 + dc_q1) / 2
                         my_qX = (mc_qX + dc_qX) / 2
                         my_q2 = (mc_q2 + dc_q2) / 2
 
                         roi_1x2 = {'1': ((1/my_q1)*q1_b)-1, 'X': ((1/my_qX)*qX_b)-1, '2': ((1/my_q2)*q2_b)-1}
                         
-                        # IDEA 3: Wisdom of the Crowd (Sharp Money Alert)
                         if q1_b > 0 and qX_b > 0 and q2_b > 0:
                             aggio = (1/q1_b) + (1/qX_b) + (1/q2_b)
                             impl_1 = (1/q1_b) / aggio
                             impl_2 = (1/q2_b) / aggio
                             
-                            # Se il bookmaker sta crollando le quote a dismisura (indicando soldi "sharp" asiatici)
-                            if impl_1 > (1/my_q1) * 1.20:
-                                drop_alert += f"🚨 SHARP MONEY: Il mercato spinge l'1 del {h_team} (Value Trappola?)\n"
-                            if impl_2 > (1/my_q2) * 1.20:
-                                drop_alert += f"🚨 SHARP MONEY: Il mercato spinge il 2 del {a_team} (Value Trappola?)\n"
+                            if impl_1 > (1/my_q1) * 1.20: drop_alert += f"🚨 SHARP MONEY: Il mercato spinge l'1 del {h_team} (Value Trappola?)\n"
+                            if impl_2 > (1/my_q2) * 1.20: drop_alert += f"🚨 SHARP MONEY: Il mercato spinge il 2 del {a_team} (Value Trappola?)\n"
                         
                         html_block = generate_complete_terminal(h_team, a_team, exp_data, {'1':q1_b,'X':qX_b,'2':q2_b}, roi_1x2, min_prob_val, h_data['Date'], a_data['Date'], bankroll_input, h_form, a_form, code, h_elo, a_elo, fatigue_alert, drop_alert)
                         
@@ -919,7 +821,7 @@ with tab_main:
                                 'q1': my_q1, 'qx': my_qX, 'q2': my_q2,
                                 'h_elo': h_elo, 'a_elo': a_elo, 
                                 'fatigue_alert': fatigue_alert, 'drop_alert': drop_alert
-                                }
+                            }
                         }
                         st.session_state['results_data'][league_name].append(item_ok)
                         st.session_state['calendar_data'].append(item_ok)
@@ -937,13 +839,12 @@ with tab_main:
                         with st.expander(m['label']):
                             st.markdown(m['html'], unsafe_allow_html=True)
                             
-                            # Sblocco: Box AI visibile per TUTTE le partite
                             display_key = f"ai_res_{m['match_id']}"
                             text_input_key = f"txt_{m['match_id']}"
                             
                             st.markdown("---")
                             st.markdown("📝 **Iniezione Dati Qualitativi (Opzionale)**")
-                            preview_text = st.text_area("Incolla qui l'anteprima da Diretta.it o Sofascore:", key=text_input_key, height=100)
+                            preview_text = st.text_area("Incolla qui l'anteprima distillata:", key=text_input_key, height=100)
                             
                             col1, col2 = st.columns([1, 3])
                             with col1:
@@ -955,9 +856,12 @@ with tab_main:
                                     else:
                                         with st.spinner("Analisi Risk Management in corso..."):
                                             d = m['ai_data']
-                                            res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], 
-                                            d['q1'], d['qx'], d['q2'], preview_text, 
-                                            d['h_elo'], d['a_elo'], d['fatigue_alert'], d['drop_alert'])
+                                            res = genera_analisi_risk_management(
+                                                gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], 
+                                                d['q1'], d['qx'], d['q2'], preview_text,
+                                                d.get('h_elo', 1500), d.get('a_elo', 1500), 
+                                                d.get('fatigue_alert', ''), d.get('drop_alert', '')
+                                            )
                                             st.session_state[display_key] = res
                             
                             if display_key in st.session_state:
@@ -976,7 +880,6 @@ with tab_cal:
                     with st.expander(m['label']): 
                         st.markdown(m['html'], unsafe_allow_html=True)
                         
-                        # Sblocco: Box AI visibile per TUTTE le partite anche nel calendario
                         display_key = f"ai_res_{m['match_id']}_cal"
                         text_input_key = f"txt_{m['match_id']}_cal"
                         
@@ -994,9 +897,12 @@ with tab_cal:
                                 else:
                                     with st.spinner("Analisi Risk Management in corso..."):
                                         d = m['ai_data']
-                                        res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], 
-                                            d['q1'], d['qx'], d['q2'], preview_text, 
-                                            d['h_elo'], d['a_elo'], d['fatigue_alert'], d['drop_alert'])
+                                        res = genera_analisi_risk_management(
+                                            gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], 
+                                            d['q1'], d['qx'], d['q2'], preview_text_cal,
+                                            d.get('h_elo', 1500), d.get('a_elo', 1500), 
+                                            d.get('fatigue_alert', ''), d.get('drop_alert', '')
+                                        )
                                         st.session_state[display_key] = res
                         
                         if display_key in st.session_state:
