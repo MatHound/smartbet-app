@@ -579,9 +579,12 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
         a_corn = float(exp_data['Corn'][1])
         
         metrics = (
-            f"- Expected Goals: {h_team} {h_xg:.2f} vs {a_team} {a_xg:.2f}\n"
+            f"- ELO Rating: {h_team} ({int(h_elo)}) vs {a_team} ({int(a_elo)})\n"
+            f"- Expected Goals (Opponent-Adjusted): {h_team} {h_xg:.2f} vs {a_team} {a_xg:.2f}\n"
             f"- Expected Corners: {h_team} {h_corn:.2f} vs {a_team} {a_corn:.2f}\n"
-            f"- ROI 1X2: 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)"
+            f"- ROI 1X2 (Monte Carlo + Poisson): 1 ({roi_1x2['1']*100:.1f}%), X ({roi_1x2['X']*100:.1f}%), 2 ({roi_1x2['2']*100:.1f}%)\n"
+            f"- ALERT FATICA: {fatigue_alert.replace('⚠️ STANCHEZZA:', '').strip() if fatigue_alert else 'Nessuno'}\n"
+            f"- ALERT MERCATO SHARP/DROP: {drop_alert.strip() if drop_alert else 'Nessuno'}"
         )
 
         prompt = f"""Agisci come un Risk Manager e Analista Tattico senior di un fondo speculativo sportivo. Il tuo obiettivo PRIMARIO è la conservazione del capitale. Non hai alcun obbligo di forzare una giocata.
@@ -911,7 +914,12 @@ with tab_main:
                             'label': f"✅ {fmt_date_str} | {h_team} vs {a_team} ({code})", 
                             'html': html_block, 'raw_date': raw_date_obj,
                             'is_top_5': code in TOP_5_LEAGUES,
-                            'ai_data': {'h': h_team, 'a': a_team, 'exp': exp_data, 'roi': roi_1x2, 'q1': my_q1, 'qx': my_qX, 'q2': my_q2}
+                            'ai_data': {
+                                'h': h_team, 'a': a_team, 'exp': exp_data, 'roi': roi_1x2, 
+                                'q1': my_q1, 'qx': my_qX, 'q2': my_q2,
+                                'h_elo': h_elo, 'a_elo': a_elo, 
+                                'fatigue_alert': fatigue_alert, 'drop_alert': drop_alert
+                                }
                         }
                         st.session_state['results_data'][league_name].append(item_ok)
                         st.session_state['calendar_data'].append(item_ok)
@@ -947,7 +955,9 @@ with tab_main:
                                     else:
                                         with st.spinner("Analisi Risk Management in corso..."):
                                             d = m['ai_data']
-                                            res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], d['q1'], d['qx'], d['q2'], preview_text)
+                                            res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], 
+                                            d['q1'], d['qx'], d['q2'], preview_text, 
+                                            d['h_elo'], d['a_elo'], d['fatigue_alert'], d['drop_alert'])
                                             st.session_state[display_key] = res
                             
                             if display_key in st.session_state:
@@ -984,7 +994,9 @@ with tab_cal:
                                 else:
                                     with st.spinner("Analisi Risk Management in corso..."):
                                         d = m['ai_data']
-                                        res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], d['q1'], d['qx'], d['q2'], preview_text_cal)
+                                        res = genera_analisi_risk_management(gemini_key_input, d['h'], d['a'], d['exp'], d['roi'], 
+                                            d['q1'], d['qx'], d['q2'], preview_text, 
+                                            d['h_elo'], d['a_elo'], d['fatigue_alert'], d['drop_alert'])
                                         st.session_state[display_key] = res
                         
                         if display_key in st.session_state:
