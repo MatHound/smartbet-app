@@ -341,10 +341,11 @@ def find_team_stats_global(team_name, cache_dataframes):
     return None, 1500, None, "N/A", "N/A"
 
 @st.cache_data(ttl=3600) # Aggiorna la cache solo ogni ora per essere super veloce
+@st.cache_data(ttl=3600) # Aggiorna la cache solo ogni ora per essere super veloce
+
 def ottieni_leghe_attive_48h():
-    """Legge i calendari gratuiti per capire chi gioca senza usare The Odds API"""
+    """Legge i calendari gratuiti aggirando i blocchi HTTP (User-Agent) e gestendo server vuoti"""
     leghe_in_campo = []
-    # Controlliamo sia il calendario principale (EU) che quello Extra (Resto del mondo)
     urls = [
         "https://www.football-data.co.uk/fixtures.csv",
         "https://www.football-data.co.uk/new/fixtures.csv"
@@ -352,15 +353,27 @@ def ottieni_leghe_attive_48h():
     oggi = datetime.now().date()
     limite = oggi + timedelta(days=2) # Copre oggi, domani e dopodomani
     
+    # Mascheriamo la richiesta per far credere al server che siamo un browser Google Chrome
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+    
     for url in urls:
         try:
-            df = pd.read_csv(url)
-            df['Date'] = pd.to_datetime(df['Date'], dayfirst=True, errors='coerce')
-            df_attive = df[(df['Date'].dt.date >= oggi) & (df['Date'].dt.date <= limite)]
-            leghe_in_campo.extend(df_attive['Div'].dropna().unique().tolist())
+            response = requests.get(url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                from io import StringIO
+                df = pd.read_csv(StringIO(response.text))
+                if 'Date' in df.columns and 'Div' in df.columns:
+                    df['Date'] = pd.to_datetime(df['Date'], dayfirst=True, errors='coerce')
+                    df_attive = df[(df['Date'].dt.date >= oggi) & (df['Date'].dt.date <= limite)]
+                    leghe_in_campo.extend(df_attive['Div'].dropna().unique().tolist())
         except:
             continue
             
+    # Se la lista è completamente vuota, significa che il server sorgente non ha ancora caricato i dati del weekend.
+    # Restituiamo 'None' per comunicare all'App l'anomalia, non '0' leghe.
+    if not leghe_in_campo:
+        return None
+        
     return list(set(leghe_in_campo))
 
 # ==============================================================================
@@ -560,24 +573,30 @@ with st.sidebar:
     
     st.divider()
     st.markdown("### 🛡️ Gestione API")
+    
     api_saver = st.checkbox("Attiva API Saver (Consigliato)", value=True, help="Controlla gratuitamente i calendari ed esclude le leghe ferme per non sprecare token API.")
     
     if api_saver and final_selection_codes:
         leghe_in_campo_oggi = ottieni_leghe_attive_48h()
-        # Filtra le leghe: mantiene solo quelle che giocano o le coppe europee (che non sono nel CSV gratuito)
-        leghe_salvate = [c for c in final_selection_codes if c in leghe_in_campo_oggi or c in ['UCL', 'UEL', 'UECL']]
         
-        API_risparmiate = len(final_selection_codes) - len(leghe_salvate)
-        final_selection_codes = leghe_salvate
-        
-        if API_risparmiate > 0:
-            st.success(f"🛡️ API Saver ha escluso {API_risparmiate} leghe ferme. Analizzo solo le {len(final_selection_codes)} in campo.")
+        if leghe_in_campo_oggi is None:
+            # FALLBACK INTELLIGENTE: Il sito sorgente è in aggiornamento. 
+            # Non tagliamo nessuna lega per non rischiare di farti perdere partite giocabili.
+            st.warning("⚠️ Database calendari remoto in manutenzione. API Saver in bypass temporaneo: scansiono tutte le leghe per sicurezza.")
         else:
-            st.info(f"Tutte le {len(final_selection_codes)} leghe selezionate sono attive.")
+            # Funzionamento normale: Filtra le leghe mantenendo solo quelle che giocano o le coppe
+            leghe_salvate = [c for c in final_selection_codes if c in leghe_in_campo_oggi or c in ['UCL', 'UEL', 'UECL']]
+            
+            API_risparmiate = len(final_selection_codes) - len(leghe_salvate)
+            final_selection_codes = leghe_salvate
+            
+            if API_risparmiate > 0:
+                st.success(f"🛡️ API Saver ha escluso {API_risparmiate} leghe ferme. Analizzo solo le {len(final_selection_codes)} in campo.")
+            else:
+                st.info(f"Tutte le {len(final_selection_codes)} leghe selezionate sono attive.")
             
     else:
         st.caption(f"Totale leghe selezionate: {len(final_selection_codes)} (Nessun filtro API)")
-
 st.title("SmartBet Pro 64")
 st.caption("Engine: Deep Data | Risk Management AI (Text Injection) | Exact Score | Dropping Odds")
 
