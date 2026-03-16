@@ -480,16 +480,8 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
     try:
         genai.configure(api_key=gemini_api_key)
         
-        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        safe_models = [m for m in available_models if '2.0' not in m and 'vision' not in m]
-        
-        if not safe_models: return "❌ Errore API: Modelli non disponibili."
-            
-        model_name = safe_models[0]
-        for m in safe_models:
-            if '1.5-flash' in m:
-                model_name = m; break
-                
+        # Istanzia direttamente Gemini 3 Flash
+        model_name = 'gemini-3.0-flash' # Verifica il nome esatto su Google AI Studio se necessario
         model = genai.GenerativeModel(model_name=model_name)
         
         h_xg = float(exp_data['RealGoals'][0])
@@ -615,6 +607,34 @@ def generate_complete_terminal(h_team, a_team, exp_data, odds_1x2, roi_1x2, min_
     html += f"CASA → Real Goals HT: {exp_data['HT'][0]:.2f}\nOSP  → Real Goals HT: {exp_data['HT'][1]:.2f}\n\n"
     html += f"Over 0.5 Primo Tempo : {(1 - poisson.pmf(0, ht_lam))*100:04.1f}% | Quota: {1/(1 - poisson.pmf(0, ht_lam)) if (1 - poisson.pmf(0, ht_lam))>0 else 99:.2f}\n"
     html += f"Over 1.5 Primo Tempo : {(1 - poisson.pmf(0, ht_lam) - poisson.pmf(1, ht_lam))*100:04.1f}% | Quota: {1/(1 - poisson.pmf(0, ht_lam) - poisson.pmf(1, ht_lam)) if (1 - poisson.pmf(0, ht_lam) - poisson.pmf(1, ht_lam))>0 else 99:.2f}\n"
+
+# --- NUOVO BLOCCO MULTIGOL 1-3 ---
+    html += f"\n<span class='term-section'>[ MERCATI MULTIGOL 1-3 (Sweet Spot) ]</span>\n"
+    
+    # Funzione per sommare le probabilità esatte di 1, 2 e 3 gol
+    def prob_mg13(lam): return poisson.pmf(1, lam) + poisson.pmf(2, lam) + poisson.pmf(3, lam)
+    
+    # Calcolo delle Lambda (Gol Attesi)
+    ht_lam = exp_data['HT'][0] + exp_data['HT'][1]
+    sh_lam = max(0.01, (exp_data['Goals'][0] + exp_data['Goals'][1]) - ht_lam) # Lambda 2° Tempo
+    
+    # Calcolo Probabilità
+    mg_h = prob_mg13(exp_data['Goals'][0])
+    mg_a = prob_mg13(exp_data['Goals'][1])
+    mg_ht = prob_mg13(ht_lam)
+    mg_sh = prob_mg13(sh_lam)
+    
+    # Formattazione output visivo
+    def fmt_mg(lbl, p):
+        q = 1/p if p > 0 else 99
+        row = f"{lbl:<21}: {p*100:04.1f}% | Quota Fair: {q:.2f}"
+        return f"<span class='term-green'>{row}</span>\n" if p >= min_prob else f"<span class='term-dim'>{row}</span>\n"
+        
+    html += fmt_mg("Multigol 1-3 CASA", mg_h)
+    html += fmt_mg("Multigol 1-3 OSPITE", mg_a)
+    html += fmt_mg("Multigol 1-3 1° TEMPO", mg_ht)
+    html += fmt_mg("Multigol 1-3 2° TEMPO", mg_sh)
+    # ---------------------------------
 
     prop_configs = [("GOL", exp_data['Goals'], [0.5, 1.5, 2.5], [0.5, 1.5], [1.5, 2.5, 3.5])]
     if league_code not in COMPACT_LEAGUES: prop_configs.extend([("CORNER", exp_data['Corn'], [3.5, 4.5, 5.5], [2.5, 3.5, 4.5], [8.5, 9.5, 10.5])])
