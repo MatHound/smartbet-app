@@ -480,8 +480,8 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
     try:
         genai.configure(api_key=gemini_api_key)
         
-        # Istanzia direttamente Gemini 3 Flash
-        model_name = 'gemini-3.0-flash' # Verifica il nome esatto su Google AI Studio se necessario
+        # Istanzia direttamente Gemini 2.5 Flash
+        model_name = 'gemini-2.5-flash' # Verifica il nome esatto su Google AI Studio se necessario
         model = genai.GenerativeModel(model_name=model_name)
         
         h_xg = float(exp_data['RealGoals'][0])
