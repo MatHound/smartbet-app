@@ -6,6 +6,7 @@ import os
 from scipy.stats import poisson
 from datetime import datetime, timedelta
 import google.generativeai as genai 
+import streamlit.components.v1 as components
 
 # ==============================================================================
 # 1. CONFIGURAZIONE
@@ -40,6 +41,42 @@ st.markdown("""
 if 'results_data' not in st.session_state: st.session_state['results_data'] = {}
 if 'calendar_data' not in st.session_state: st.session_state['calendar_data'] = []
 if 'missing_log' not in st.session_state: st.session_state['missing_log'] = []
+if 'print_html' not in st.session_state: st.session_state['print_html'] = None
+
+def imposta_stampa(html_base, match_id, tab_type):
+    html_finale = html_base
+    display_key = f"ai_res_{match_id}" if tab_type == 'main' else f"ai_res_{match_id}_cal"
+
+    # Se esiste l'analisi AI per questa partita, la accodiamo alla stampa
+    if display_key in st.session_state:
+        html_finale += f"<br><br><div style='border-top: 2px dashed black; padding-top:15px; margin-top:15px;'><strong>ANALISI AI RISK MANAGEMENT:</strong><br><pre style='white-space: pre-wrap; font-family: monospace; font-size: 12px;'>{st.session_state[display_key]}</pre></div>"
+    
+    st.session_state['print_html'] = html_finale
+
+if st.session_state.get('print_html'):
+    print_code = f"""
+    <html>
+        <head>
+            <style>
+                /* Stili forzati per il risparmio inchiostro (Black on White) */
+                body {{ font-family: 'Courier New', Courier, monospace; color: black; background: white; font-size: 11px; }}
+                .terminal-box {{ border: 2px solid black; padding: 20px; }}
+                .term-header {{ font-size: 16px; font-weight: bold; border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 10px; }}
+                .term-section {{ font-size: 14px; font-weight: bold; margin-top: 20px; margin-bottom: 5px; text-decoration: underline; display: block; }}
+                .term-green {{ font-weight: bold; }}
+                .term-val {{ font-weight: bold; border: 1px solid black; padding: 2px 4px; }}
+                .term-warn {{ font-weight: bold; border: 2px dashed black; padding: 4px; display: inline-block; }}
+                .term-fatigue, .term-drop {{ font-weight: bold; border: 1px solid black; padding: 2px; }}
+                .term-dim {{ color: #555; }}
+            </style>
+        </head>
+        <body onload="window.print()">
+            {st.session_state['print_html']}
+        </body>
+    </html>
+    """
+    components.html(print_code, height=0, width=0) # iframe invisibile che lancia la stampa
+    st.session_state['print_html'] = None # Pulisce la memoria per non stampare all'infinito
 
 # --- DATABASE LEGHE ---
 LEAGUE_GROUPS = {
@@ -790,6 +827,23 @@ with tab_main:
                         for met in ['Goals', 'xG', 'Shots', 'Corn', 'Fouls', 'Cards', 'HT']:
                             val_h = h_data[f'W_{met}_Att'] * a_data[f'W_{met}_Def'] * h_avgs[f'{met}_H']
                             val_a = a_data[f'W_{met}_Att'] * h_data[f'W_{met}_Def'] * a_avgs[f'{met}_A']
+                            
+                            # --- FIX DISUGUAGLIANZA COPPE EUROPEE ---
+                            if code in ['UCL', 'UEL', 'UECL']:
+                                h_coeff = LEAGUE_COEFF.get(h_lg, 0.65)
+                                a_coeff = LEAGUE_COEFF.get(a_lg, 0.65)
+                                
+                                # Se c'è un gap di campionato, sgonfia le stats della squadra debole
+                                if h_coeff > a_coeff:
+                                    sconto = a_coeff / h_coeff  # es. Panathinaikos(0.65) / Betis(0.96) = 0.67
+                                    val_a *= sconto             # Taglia via il 33% della potenza offensiva greca
+                                    val_h *= (1 + (1 - sconto) * 0.5) # Leggero boost difensivo/offensivo alla big
+                                elif a_coeff > h_coeff:
+                                    sconto = h_coeff / a_coeff
+                                    val_h *= sconto
+                                    val_a *= (1 + (1 - sconto) * 0.5)
+                            # -----------------------------------------
+                            
                             exp_data[met] = (val_h, val_a)
                         exp_data['RealGoals'] = exp_data['Goals'] 
 
