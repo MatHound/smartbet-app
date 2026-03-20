@@ -1,3 +1,8 @@
+Ecco il codice completo e aggiornato. Ho integrato sia il correttore per le **Coppe Europee**, sia l'aggiornamento a **Gemini 3 Flash**, sia il nuovo sistema di **stampa invisibile**, mantenendo intatto il resto del tuo motore algoritmico e dell'interfaccia.
+
+Copia e incolla questo codice sovrascrivendo interamente il tuo attuale file `app.py`:
+
+```python
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -43,16 +48,18 @@ if 'calendar_data' not in st.session_state: st.session_state['calendar_data'] = 
 if 'missing_log' not in st.session_state: st.session_state['missing_log'] = []
 if 'print_html' not in st.session_state: st.session_state['print_html'] = None
 
+# Funzione per gestire l'html da stampare
 def imposta_stampa(html_base, match_id, tab_type):
     html_finale = html_base
     display_key = f"ai_res_{match_id}" if tab_type == 'main' else f"ai_res_{match_id}_cal"
-
+    
     # Se esiste l'analisi AI per questa partita, la accodiamo alla stampa
     if display_key in st.session_state:
         html_finale += f"<br><br><div style='border-top: 2px dashed black; padding-top:15px; margin-top:15px;'><strong>ANALISI AI RISK MANAGEMENT:</strong><br><pre style='white-space: pre-wrap; font-family: monospace; font-size: 12px;'>{st.session_state[display_key]}</pre></div>"
     
     st.session_state['print_html'] = html_finale
 
+# Motore invisibile per lanciare la finestra di stampa
 if st.session_state.get('print_html'):
     print_code = f"""
     <html>
@@ -75,8 +82,8 @@ if st.session_state.get('print_html'):
         </body>
     </html>
     """
-    components.html(print_code, height=0, width=0) # iframe invisibile che lancia la stampa
-    st.session_state['print_html'] = None # Pulisce la memoria per non stampare all'infinito
+    components.html(print_code, height=0, width=0)
+    st.session_state['print_html'] = None
 
 # --- DATABASE LEGHE ---
 LEAGUE_GROUPS = {
@@ -517,8 +524,8 @@ def genera_analisi_risk_management(gemini_api_key, h_team, a_team, exp_data, roi
     try:
         genai.configure(api_key=gemini_api_key)
         
-        # Istanzia direttamente Gemini 2.5 Flash
-        model_name = 'gemini-2.5-flash' # Verifica il nome esatto su Google AI Studio se necessario
+        # Istanzia direttamente Gemini 3.0 Flash
+        model_name = 'gemini-3.0-flash'
         model = genai.GenerativeModel(model_name=model_name)
         
         h_xg = float(exp_data['RealGoals'][0])
@@ -920,9 +927,9 @@ with tab_main:
                             st.markdown("📝 **Iniezione Dati Qualitativi (Opzionale)**")
                             preview_text = st.text_area("Incolla qui l'anteprima distillata:", key=text_input_key, height=100)
                             
-                            col1, col2 = st.columns([1, 3])
+                            col1, col2, col3 = st.columns([2, 2, 4])
                             with col1:
-                                if st.button("🧠 Genera Risk Management", key=f"btn_{m['match_id']}_main"):
+                                if st.button("🧠 Genera Risk", key=f"btn_{m['match_id']}_main"):
                                     if not gemini_key_input:
                                         st.error("Inserisci la chiave Gemini a sinistra!")
                                     elif not preview_text.strip():
@@ -937,6 +944,9 @@ with tab_main:
                                                 d.get('fatigue_alert', ''), d.get('drop_alert', '')
                                             )
                                             st.session_state[display_key] = res
+                                            
+                            with col2:
+                                st.button("🖨️ Stampa Report", key=f"print_{m['match_id']}_main", on_click=imposta_stampa, args=(m['html'], m['match_id'], 'main'))
                             
                             if display_key in st.session_state:
                                 st.markdown(f"<div class='ai-box'>{st.session_state[display_key]}</div>", unsafe_allow_html=True)
@@ -961,9 +971,9 @@ with tab_cal:
                         st.markdown("📝 **Iniezione Dati Qualitativi (Opzionale)**")
                         preview_text_cal = st.text_area("Incolla qui l'anteprima:", key=text_input_key, height=100)
                         
-                        col1, col2 = st.columns([1, 3])
+                        col1, col2, col3 = st.columns([2, 2, 4])
                         with col1:
-                            if st.button("🧠 Genera Risk Management", key=f"btn_{m['match_id']}_cal"):
+                            if st.button("🧠 Genera Risk", key=f"btn_{m['match_id']}_cal"):
                                 if not gemini_key_input:
                                     st.error("Inserisci la chiave Gemini a sinistra!")
                                 elif not preview_text_cal.strip():
@@ -978,8 +988,13 @@ with tab_cal:
                                             d.get('fatigue_alert', ''), d.get('drop_alert', '')
                                         )
                                         st.session_state[display_key] = res
+                                        
+                        with col2:
+                            st.button("🖨️ Stampa Report", key=f"print_{m['match_id']}_cal", on_click=imposta_stampa, args=(m['html'], m['match_id'], 'cal'))
                         
                         if display_key in st.session_state:
                             st.markdown(f"<div class='ai-box'>{st.session_state[display_key]}</div>", unsafe_allow_html=True)
             else: st.warning("Nessuna partita in questa data.")
     else: st.info("Esegui prima la ricerca dei Value Bets per popolare il calendario.")
+
+```
