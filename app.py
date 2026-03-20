@@ -60,16 +60,22 @@ if st.session_state.get('print_html'):
     <html>
         <head>
             <style>
-                /* Stili forzati per il risparmio inchiostro (Black on White) */
+                /* Forza il browser a stampare i colori esatti e non convertire in scala di grigi */
+                * {{
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }}
+                /* Stili adattati per sfondo bianco (Colori scuri ad alto contrasto) */
                 body {{ font-family: 'Courier New', Courier, monospace; color: black; background: white; font-size: 11px; }}
-                .terminal-box {{ border: 2px solid black; padding: 20px; }}
-                .term-header {{ font-size: 16px; font-weight: bold; border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 10px; }}
-                .term-section {{ font-size: 14px; font-weight: bold; margin-top: 20px; margin-bottom: 5px; text-decoration: underline; display: block; }}
-                .term-green {{ font-weight: bold; }}
-                .term-val {{ font-weight: bold; border: 1px solid black; padding: 2px 4px; }}
-                .term-warn {{ font-weight: bold; border: 2px dashed black; padding: 4px; display: inline-block; }}
-                .term-fatigue, .term-drop {{ font-weight: bold; border: 1px solid black; padding: 2px; }}
-                .term-dim {{ color: #555; }}
+                .terminal-box {{ border: 2px solid black; padding: 20px; white-space: pre-wrap; word-wrap: break-word; line-height: 1.4; }}
+                .term-header {{ font-size: 16px; font-weight: bold; border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 10px; display: block; }}
+                .term-section {{ font-size: 14px; font-weight: bold; margin-top: 20px; margin-bottom: 5px; text-decoration: underline; display: block; color: #0044aa; }} /* Blu scuro */
+                .term-green {{ font-weight: bold; color: #008800; }} /* Verde scuro */
+                .term-val {{ font-weight: bold; color: #880088; border: 1px solid #880088; padding: 2px 4px; }} /* Magenta scuro */
+                .term-warn {{ font-weight: bold; color: #cc0000; border: 2px dashed #cc0000; padding: 4px; display: inline-block; }} /* Rosso scuro */
+                .term-fatigue {{ font-weight: bold; color: #cc5500; border: 1px solid #cc5500; padding: 2px; }} /* Arancione scuro */
+                .term-drop {{ font-weight: bold; color: #008800; border: 1px solid #008800; padding: 2px; }} /* Verde scuro */
+                .term-dim {{ color: #666666; }} /* Grigio per far risaltare i verdi */
             </style>
         </head>
         <body onload="window.print()">
