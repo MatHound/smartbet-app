@@ -1,8 +1,3 @@
-Ecco il codice completo e aggiornato. Ho integrato sia il correttore per le **Coppe Europee**, sia l'aggiornamento a **Gemini 3 Flash**, sia il nuovo sistema di **stampa invisibile**, mantenendo intatto il resto del tuo motore algoritmico e dell'interfaccia.
-
-Copia e incolla questo codice sovrascrivendo interamente il tuo attuale file `app.py`:
-
-```python
 import streamlit as st
 import pandas as pd
 import numpy as np
