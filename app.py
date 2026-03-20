@@ -991,5 +991,3 @@ with tab_cal:
                             st.markdown(f"<div class='ai-box'>{st.session_state[display_key]}</div>", unsafe_allow_html=True)
             else: st.warning("Nessuna partita in questa data.")
     else: st.info("Esegui prima la ricerca dei Value Bets per popolare il calendario.")
-
-```
