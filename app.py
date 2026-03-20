@@ -16,7 +16,7 @@ import streamlit.components.v1 as components
 # ==============================================================================
 # 1. CONFIGURAZIONE
 # ==============================================================================
-st.set_page_config(page_title="SmartBet Pro 63.2 Risk Manager", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="SmartBet Pro 64", page_icon="🧬", layout="wide")
 
 STAGIONE = "2526"
 REGION = 'eu'
@@ -754,7 +754,7 @@ with st.sidebar:
     else:
         st.caption(f"Totale leghe selezionate: {len(final_selection_codes)} (Nessun filtro API)")
 
-st.title("SmartBet Pro 63.2")
+st.title("SmartBet Pro 64")
 st.caption("Engine: Deep Data | Risk Management AI (Text Injection) | Exact Score | Dropping Odds")
 
 tab_main, tab_cal = st.tabs(["🚀 ANALISI MATCH", "📅 CALENDARIO"])
